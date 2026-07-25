@@ -1,0 +1,1498 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================
+   CYBER-TECH / DARK MATTER DESIGN
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-neon: #00FF41;
+    --secondary-neon: #FFD700;
+    --secondary-dark: #050812;
+    --tertiary-neon: #00D9FF;
+    --danger-neon: #FF0055;
+    --bg-dark: #0A0E27;
+    --bg-darker: #050812;
+    --bg-grid: rgba(0, 255, 65, 0.03);
+    --text-primary: #FFFFFF;
+    --text-secondary: #A0AEC0;
+    --border-neon: rgba(0, 255, 65, 0.3);
+    --glow-primary: rgba(0, 255, 65, 0.4);
+    --glow-secondary: rgba(255, 215, 0, 0.3);
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    font-family: 'Space Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+body {
+    background: linear-gradient(135deg, var(--bg-darker) 0%, #0F1B3C 50%, var(--bg-dark) 100%);
+    color: var(--text-primary);
+    line-height: 1.6;
+    position: relative;
+}
+
+/* Animated mesh gradient background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 255, 65, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 215, 0, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: meshShift 15s ease-in-out infinite;
+}
+
+@keyframes meshShift {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* Scanline effect overlay */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+    );
+    pointer-events: none;
+    z-index: 999;
+    animation: scanlines 8s linear infinite;
+}
+
+@keyframes scanlines {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(10px); }
+}
+
+/* ============================================
+   CONTAINER & LAYOUT
+   ============================================ */
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 15px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+}
+
+.header {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-neon);
+    position: relative;
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary-neon), transparent);
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    font-size: clamp(24px, 5vw, 32px);
+    flex-shrink: 0;
+    animation: cyberPulse 2s ease-in-out infinite;
+    text-shadow: 0 0 20px var(--primary-neon), 0 0 40px rgba(0, 255, 65, 0.5);
+}
+
+@keyframes cyberPulse {
+    0%, 100% { transform: scale(1); text-shadow: 0 0 20px var(--primary-neon), 0 0 40px rgba(0, 255, 65, 0.5); }
+    50% { transform: scale(1.1); text-shadow: 0 0 30px var(--primary-neon), 0 0 60px rgba(0, 255, 65, 0.7); }
+}
+
+.logo h1 {
+    font-size: clamp(18px, 4vw, 28px);
+    font-weight: 900;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--primary-neon), 0 0 20px rgba(0, 255, 65, 0.6);
+    color: var(--primary-neon);
+    animation: glitchText 3s ease-in-out infinite;
+}
+
+@keyframes glitchText {
+    0%, 100% { text-shadow: 0 0 10px var(--primary-neon), 0 0 20px rgba(0, 255, 65, 0.6); }
+    50% { text-shadow: 0 0 20px var(--tertiary-neon), 0 0 30px rgba(0, 217, 255, 0.6); }
+}
+
+.main-content {
+    flex: 1;
+    width: 100%;
+}
+
+.section {
+    animation: fadeInUp 0.6s ease-out;
+    width: 100%;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   CARD STYLES (CYBER-TECH)
+   ============================================ */
+
+.wallet-card,
+.balance-card,
+.coin-card,
+.modal-content {
+    background: rgba(10, 14, 39, 0.6);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    padding: clamp(20px, 5vw, 30px);
+    box-shadow: 
+        0 0 20px rgba(0, 255, 65, 0.2),
+        inset 0 0 20px rgba(0, 255, 65, 0.05),
+        0 0 40px rgba(0, 217, 255, 0.1);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.wallet-card::before,
+.balance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.2), transparent);
+    animation: borderScan 3s ease-in-out infinite;
+}
+
+@keyframes borderScan {
+    0% { left: -100%; }
+    50% { left: 100%; }
+    100% { left: 100%; }
+}
+
+.wallet-card:hover,
+.balance-card:hover {
+    border-color: var(--tertiary-neon);
+    box-shadow: 
+        0 0 30px rgba(0, 217, 255, 0.4),
+        inset 0 0 30px rgba(0, 217, 255, 0.1),
+        0 0 60px rgba(0, 255, 65, 0.2);
+    transform: translateY(-6px);
+}
+
+/* ============================================
+   BUTTONS (CYBER-TECH)
+   ============================================ */
+
+.btn-primary,
+.btn-secondary {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    border-radius: 0;
+    padding: 12px 24px;
+    border: 2px solid var(--primary-neon);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 12px;
+}
+
+.btn-primary {
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--primary-neon);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), inset 0 0 20px rgba(0, 255, 65, 0.05);
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+/* Yellow buttons specifically for fee payment */
+#quickFeeBtn, .btn-yellow {
+    background: var(--secondary-neon) !important;
+    color: var(--secondary-dark) !important;
+    border-color: var(--secondary-neon) !important;
+    text-shadow: none !important;
+    font-weight: 900 !important;
+}
+
+#quickFeeBtn:hover, .btn-yellow:hover {
+    box-shadow: 0 0 30px var(--secondary-neon) !important;
+    transform: translateY(-3px);
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 255, 65, 0.3);
+    transition: left 0.4s ease;
+    z-index: -1;
+}
+
+.btn-primary:hover::before {
+    left: 100%;
+}
+
+.btn-primary:hover {
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.6), inset 0 0 30px rgba(0, 255, 65, 0.2);
+    transform: translateY(-3px);
+    text-shadow: 0 0 20px var(--primary-neon);
+}
+
+.btn-primary:active {
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: rgba(0, 217, 255, 0.1);
+    color: var(--tertiary-neon);
+    border-color: var(--tertiary-neon);
+    box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+}
+
+.btn-secondary:hover {
+    box-shadow: 0 0 25px rgba(0, 217, 255, 0.4);
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.btn-disconnect {
+    background: rgba(255, 0, 85, 0.1);
+    border: 2px solid #FF0055;
+    color: #FF0055;
+    padding: 8px 16px;
+    border-radius: 0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-disconnect:hover {
+    background: rgba(255, 0, 85, 0.2);
+    box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+}
+
+/* ============================================
+   MODAL STYLES (CYBER-TECH)
+   ============================================ */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 15px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid var(--primary-neon);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-neon);
+}
+
+.modal-header h2 {
+    font-size: clamp(18px, 4vw, 24px);
+    color: var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: var(--tertiary-neon);
+    font-size: 24px;
+    cursor: pointer;
+    line-height: 1;
+    transition: all 0.2s ease;
+    text-shadow: 0 0 10px var(--tertiary-neon);
+}
+
+.modal-close:hover {
+    color: var(--danger-neon);
+    transform: rotate(90deg);
+    text-shadow: 0 0 15px var(--danger-neon);
+}
+
+/* ============================================
+   FORM ELEMENTS (CYBER-TECH)
+   ============================================ */
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--tertiary-neon);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    color: var(--primary-neon);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.form-group input::placeholder {
+    color: rgba(0, 255, 65, 0.3);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--tertiary-neon);
+    background: rgba(0, 217, 255, 0.05);
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.2), inset 0 0 20px rgba(0, 217, 255, 0.05);
+}
+
+/* ============================================
+   WALLET SELECTION (CYBER-TECH)
+   ============================================ */
+
+.wallet-option {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--border-neon);
+    color: var(--text-primary);
+    border-radius: 0;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-size: 13px;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.wallet-option:hover {
+    border-color: var(--tertiary-neon);
+    background: rgba(0, 217, 255, 0.1);
+    transform: translateY(-3px);
+    box-shadow: 0 0 25px rgba(0, 217, 255, 0.3);
+    color: var(--tertiary-neon);
+    text-shadow: 0 0 10px var(--tertiary-neon);
+}
+
+.wallet-option:active {
+    transform: translateY(-1px);
+}
+
+.wallet-option span {
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+}
+
+/* ============================================
+   BALANCE & COIN CARDS (CYBER-TECH)
+   ============================================ */
+
+.balance-card {
+    margin-bottom: 25px;
+}
+
+.balance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.balance-label {
+    color: var(--tertiary-neon);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.balance-amount {
+    font-size: clamp(28px, 6vw, 42px);
+    font-weight: 900;
+    font-family: 'Orbitron', sans-serif;
+    color: var(--primary-neon);
+    text-shadow: 0 0 20px var(--primary-neon), 0 0 40px rgba(0, 255, 65, 0.5);
+    letter-spacing: 2px;
+}
+
+.balance-icon {
+    font-size: 32px;
+    animation: cyberBounce 2s ease-in-out infinite;
+    text-shadow: 0 0 15px var(--primary-neon);
+}
+
+@keyframes cyberBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+}
+
+.coins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.coin-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.coin-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent, rgba(0, 255, 65, 0.1), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.coin-card:hover {
+    border-color: var(--tertiary-neon);
+    transform: translateY(-4px);
+    box-shadow: 0 0 25px rgba(0, 217, 255, 0.3);
+}
+
+.coin-icon {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 15px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--border-neon);
+    position: relative;
+    z-index: 1;
+}
+
+.coin-name {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    font-family: 'Orbitron', sans-serif;
+    color: var(--tertiary-neon);
+    text-transform: uppercase;
+}
+
+.coin-amount {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+/* ============================================
+   TABS (CYBER-TECH)
+   ============================================ */
+
+.tabs-container {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--border-neon);
+    overflow-x: auto;
+    padding-bottom: 5px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tabs-container::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 11px;
+    white-space: nowrap;
+    border-radius: 0;
+    transition: all 0.3s ease;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.tab-btn:hover {
+    color: var(--tertiary-neon);
+}
+
+.tab-btn.active {
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--primary-neon);
+    border-bottom: 3px solid var(--primary-neon);
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* ============================================
+   SPECIAL BOXES (CYBER-TECH)
+   ============================================ */
+
+.fee-box {
+    background: rgba(0, 255, 65, 0.05);
+    border: 2px dashed var(--primary-neon);
+    padding: 15px;
+    border-radius: 0;
+    text-align: center;
+    font-size: clamp(18px, 4vw, 24px);
+    font-weight: 900;
+    color: var(--primary-neon);
+    margin: 10px 0;
+    box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.1), 0 0 20px rgba(0, 255, 65, 0.2);
+    font-family: 'Orbitron', sans-serif;
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+.address-box {
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--border-neon);
+    padding: 10px;
+    border-radius: 0;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    word-break: break-all;
+    margin-top: 10px;
+    color: var(--tertiary-neon);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.address-box:hover {
+    border-color: var(--tertiary-neon);
+    background: rgba(0, 217, 255, 0.05);
+    box-shadow: 0 0 15px rgba(0, 217, 255, 0.2);
+}
+
+.info-box {
+    background: rgba(0, 255, 65, 0.05);
+    border-left: 4px solid var(--primary-neon);
+    border: 2px solid var(--border-neon);
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 0;
+    font-size: 12px;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+}
+
+.info {
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    padding: 15px;
+    margin-top: 20px;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+}
+
+.info h3 {
+    font-size: 13px;
+    font-weight: 900;
+    margin-bottom: 10px;
+    color: var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+.info ul {
+    list-style: none;
+}
+
+.info li {
+    font-size: 12px;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-family: 'Space Mono', monospace;
+}
+
+/* ============================================
+   MEDIA QUERIES - TABLET & LARGE PHONES (768px)
+   ============================================ */
+
+@media (max-width: 768px) {
+    .container { padding: 12px; }
+    .header { margin-bottom: 20px; }
+    .header-content { flex-direction: column; align-items: center; text-align: center; gap: 15px; }
+    .logo h1 { font-size: 22px; }
+    .coins-grid { grid-template-columns: 1fr 1fr; }
+    .btn-primary, .btn-secondary { padding: 14px 20px; font-size: 13px; }
+    .modal-content { max-width: 95vw; padding: 20px; }
+    .modal-header h2 { font-size: 20px; }
+    .form-group input, .form-group select { padding: 14px; font-size: 16px; }
+    .wallet-option { padding: 16px; font-size: 14px; }
+    .balance-amount { font-size: 32px; }
+}
+
+/* ============================================
+   MEDIA QUERIES - MEDIUM PHONES (600px)
+   ============================================ */
+
+@media (max-width: 600px) {
+    .container { padding: 10px; }
+    .header { margin-bottom: 15px; padding-bottom: 15px; }
+    .logo h1 { font-size: 20px; letter-spacing: 1px; }
+    .logo-icon { font-size: 28px; }
+    .coins-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .coin-card { padding: 12px; }
+    .coin-name { font-size: 11px; }
+    .coin-amount { font-size: 14px; }
+    .btn-primary, .btn-secondary { padding: 12px 18px; font-size: 12px; }
+    .btn-full { width: 100%; margin-bottom: 8px; }
+    .modal-content { max-width: 90vw; padding: 16px; }
+    .modal-header { margin-bottom: 15px; padding-bottom: 12px; }
+    .modal-header h2 { font-size: 18px; letter-spacing: 0.5px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { font-size: 11px; }
+    .form-group input, .form-group select { padding: 12px; font-size: 16px; }
+    .wallet-option { padding: 14px; font-size: 13px; margin-bottom: 8px; }
+    .wallet-option span { font-size: 18px; }
+    .balance-amount { font-size: 28px; letter-spacing: 1px; }
+    .balance-label { font-size: 10px; }
+    .tether-icon-wrapper { width: 80px; height: 80px; }
+    .tether-icon-inner { width: 70px; height: 70px; }
+    .progress-percentage { font-size: 24px; }
+    .progress-status { font-size: 11px; }
+    .tab-btn { padding: 6px 10px; font-size: 10px; }
+    .fee-box { font-size: 18px; padding: 12px; }
+    .info { padding: 12px; margin-top: 15px; }
+    .info h3 { font-size: 12px; }
+    .info li { font-size: 11px; margin-bottom: 5px; }
+}
+
+/* ============================================
+   MEDIA QUERIES - SMALL PHONES (480px)
+   ============================================ */
+
+@media (max-width: 480px) {
+    .container { padding: 8px; }
+    .header { margin-bottom: 12px; padding-bottom: 10px; }
+    .logo h1 { font-size: 18px; letter-spacing: 0.5px; }
+    .logo-icon { font-size: 26px; }
+    .coins-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .coin-card { padding: 10px; }
+    .coin-icon { width: 40px; height: 40px; margin: 0 auto 10px; }
+    .coin-name { font-size: 10px; }
+    .coin-amount { font-size: 13px; }
+    .btn-primary, .btn-secondary { padding: 11px 16px; font-size: 11px; min-height: 44px; }
+    .btn-full { width: 100%; margin-bottom: 6px; }
+    .modal { padding: 10px; }
+    .modal-content { max-width: 95vw; padding: 14px; max-height: 85vh; }
+    .modal-header { margin-bottom: 12px; padding-bottom: 10px; }
+    .modal-header h2 { font-size: 16px; letter-spacing: 0.5px; }
+    .modal-close { font-size: 20px; }
+    .form-group { margin-bottom: 10px; }
+    .form-group label { font-size: 10px; margin-bottom: 4px; }
+    .form-group input, .form-group select { padding: 11px; font-size: 16px; }
+    .wallet-option { padding: 12px; font-size: 12px; margin-bottom: 6px; }
+    .wallet-option span { font-size: 16px; }
+    .balance-amount { font-size: 24px; letter-spacing: 0.5px; }
+    .balance-label { font-size: 9px; }
+    .balance-icon { font-size: 28px; }
+    .tether-icon-wrapper { width: 70px; height: 70px; }
+    .tether-icon-inner { width: 60px; height: 60px; }
+    .progress-percentage { font-size: 22px; }
+    .progress-status { font-size: 10px; }
+    .tab-btn { padding: 5px 8px; font-size: 9px; }
+    .fee-box { font-size: 16px; padding: 10px; }
+    .address-box { font-size: 10px; padding: 8px; }
+    .info { padding: 10px; margin-top: 12px; }
+    .info h3 { font-size: 11px; margin-bottom: 8px; }
+    .info li { font-size: 10px; margin-bottom: 4px; }
+    .chat-container { width: 90vw; height: 400px; }
+    .chat-header { padding: 12px 15px; font-size: 12px; }
+    .chat-messages { padding: 15px; }
+    .message { font-size: 12px; padding: 8px 12px; }
+}
+
+/* ============================================
+   MEDIA QUERIES - EXTRA SMALL PHONES (360px)
+   ============================================ */
+
+@media (max-width: 360px) {
+    .container { padding: 6px; }
+    .header { margin-bottom: 10px; padding-bottom: 8px; }
+    .logo h1 { font-size: 16px; letter-spacing: 0px; }
+    .logo-icon { font-size: 24px; }
+    .coins-grid { grid-template-columns: 1fr; gap: 8px; }
+    .coin-card { padding: 8px; }
+    .coin-icon { width: 35px; height: 35px; margin: 0 auto 8px; }
+    .coin-name { font-size: 9px; }
+    .coin-amount { font-size: 12px; }
+    .btn-primary, .btn-secondary { padding: 10px 14px; font-size: 10px; min-height: 42px; }
+    .btn-full { width: 100%; margin-bottom: 5px; }
+    .modal-content { max-width: 98vw; padding: 12px; }
+    .modal-header h2 { font-size: 15px; }
+    .form-group label { font-size: 9px; }
+    .form-group input, .form-group select { padding: 10px; font-size: 15px; }
+    .wallet-option { padding: 10px; font-size: 11px; margin-bottom: 5px; }
+    .wallet-option span { font-size: 14px; }
+    .balance-amount { font-size: 20px; }
+    .tether-icon-wrapper { width: 60px; height: 60px; }
+    .tether-icon-inner { width: 50px; height: 50px; }
+    .progress-percentage { font-size: 20px; }
+    .fee-box { font-size: 14px; padding: 8px; }
+    .info { padding: 8px; margin-top: 10px; }
+    .info h3 { font-size: 10px; }
+    .info li { font-size: 9px; margin-bottom: 3px; }
+}
+
+/* ============================================
+   CIRCULAR PROGRESS (CYBER-TECH)
+   ============================================ */
+
+.circular-progress-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 25px;
+}
+
+.circular-progress-container {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.circular-progress-container svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 160px;
+    height: 160px;
+    filter: drop-shadow(0 0 20px rgba(0, 255, 65, 0.4));
+}
+
+.tether-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.tether-icon-inner {
+    width: 80px;
+    height: 80px;
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--primary-neon);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.4), inset 0 0 20px rgba(0, 255, 65, 0.1);
+}
+
+.tether-icon-inner img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.progress-info-bottom {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.progress-percentage {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--primary-neon);
+    text-shadow: 0 0 20px var(--primary-neon);
+    margin-bottom: 5px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.progress-status {
+    font-size: 12px;
+    color: var(--tertiary-neon);
+    font-weight: 700;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+}
+
+@keyframes pulse {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.05); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.circular-progress-container.active .tether-center {
+    animation: pulse 1s infinite ease-in-out;
+}
+
+/* ============================================
+   TELEGRAM BUTTON (CYBER-TECH)
+   ============================================ */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.btn-telegram {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 217, 255, 0.1);
+    border: 2px solid var(--tertiary-neon);
+    color: var(--tertiary-neon);
+    padding: 8px 16px;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-telegram:hover {
+    background: rgba(0, 217, 255, 0.2);
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   CHAT WIDGET (CYBER-TECH)
+   ============================================ */
+
+.chat-widget {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 5000;
+}
+
+.chat-toggle {
+    width: 60px;
+    height: 60px;
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--primary-neon);
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-neon);
+    cursor: pointer;
+    box-shadow: 0 0 25px rgba(0, 255, 65, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-weight: 900;
+    font-size: 20px;
+    text-shadow: 0 0 10px var(--primary-neon);
+}
+
+.chat-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 35px rgba(0, 255, 65, 0.5);
+}
+
+.chat-container {
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    width: 350px;
+    height: 500px;
+    background: rgba(10, 14, 39, 0.8);
+    border: 2px solid var(--primary-neon);
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+}
+
+.chat-header {
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--primary-neon);
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 900;
+    font-family: 'Orbitron', sans-serif;
+    border-bottom: 2px solid var(--border-neon);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.online-status {
+    width: 10px;
+    height: 10px;
+    background: var(--primary-neon);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--primary-neon);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.chat-close {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--primary-neon);
+    opacity: 0.8;
+    transition: all 0.2s ease;
+}
+
+.chat-close:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.message {
+    max-width: 80%;
+    padding: 10px 15px;
+    border-radius: 0;
+    font-size: 13px;
+    line-height: 1.4;
+    animation: fadeInUp 0.3s ease-out;
+    font-family: 'Space Mono', monospace;
+}
+
+.message.system {
+    align-self: flex-start;
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--primary-neon);
+    border: 1px solid var(--border-neon);
+}
+
+.message.user {
+    align-self: flex-end;
+    background: rgba(0, 217, 255, 0.1);
+    color: var(--tertiary-neon);
+    border: 1px solid var(--tertiary-neon);
+}
+
+.chat-input-area {
+    padding: 15px;
+    border-top: 2px solid var(--border-neon);
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input-area input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    padding: 10px;
+    color: var(--primary-neon);
+    outline: none;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.3s ease;
+}
+
+.chat-input-area input:focus {
+    border-color: var(--tertiary-neon);
+    background: rgba(0, 217, 255, 0.05);
+}
+
+.chat-input-area button {
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--primary-neon);
+    border-radius: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-neon);
+    cursor: pointer;
+    font-weight: 900;
+    transition: all 0.3s ease;
+}
+
+.chat-input-area button:hover {
+    background: rgba(0, 255, 65, 0.2);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+}
+
+/* ============================================
+   NOTIFICATIONS (CYBER-TECH)
+   ============================================ */
+
+.notification-container {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.purchase-notification {
+    background: rgba(10, 14, 39, 0.9);
+    border: 2px solid var(--primary-neon);
+    border-radius: 0;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.3);
+    animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), fadeOut 0.5s ease 5.5s forwards;
+    max-width: 320px;
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-100px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-20px); }
+}
+
+.notif-icon {
+    width: 45px;
+    height: 45px;
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--primary-neon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.notif-content {
+    flex: 1;
+}
+
+.notif-user {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary-neon);
+    margin-bottom: 2px;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.notif-action {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.notif-amount {
+    color: var(--primary-neon);
+    font-weight: 900;
+}
+
+/* ============================================
+   SCROLLBAR (CYBER-TECH)
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 65, 0.4);
+    border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.6);
+}
+
+/* ============================================
+   TETHER GLOW ICON
+   ============================================ */
+
+.tether-glow-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.tether-icon-wrapper {
+    width: clamp(70px, 15vw, 100px);
+    height: clamp(70px, 15vw, 100px);
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--primary-neon);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    position: relative;
+    animation: cyberGlow 3s infinite alternate ease-in-out;
+    box-shadow: 0 0 40px rgba(0, 255, 65, 0.4), inset 0 0 20px rgba(0, 255, 65, 0.1);
+}
+
+.tether-main-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 2;
+}
+
+@keyframes cyberGlow {
+    0% {
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), inset 0 0 20px rgba(0, 255, 65, 0.1);
+        transform: scale(1);
+    }
+    100% {
+        box-shadow: 0 0 40px rgba(0, 255, 65, 0.6), inset 0 0 30px rgba(0, 255, 65, 0.2);
+        transform: scale(1.05);
+    }
+}
+
+/* ============================================
+   VIP BADGE (CYBER-TECH)
+   ============================================ */
+
+.vip-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 65, 0.1);
+    color: var(--primary-neon);
+    padding: 6px 12px;
+    border-radius: 0;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+    animation: vipPulse 2s ease-in-out infinite;
+    border: 2px solid var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+}
+
+@keyframes vipPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* ============================================
+   TRANSACTION HISTORY (CYBER-TECH)
+   ============================================ */
+
+.transaction-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--border-neon);
+    border-radius: 0;
+    transition: all 0.3s ease;
+}
+
+.transaction-item:hover {
+    background: rgba(0, 255, 65, 0.05);
+    border-color: var(--tertiary-neon);
+}
+
+.transaction-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 255, 65, 0.1);
+    border: 2px solid var(--border-neon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.transaction-type {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+}
+
+.transaction-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.transaction-amount {
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--primary-neon);
+    font-family: 'Orbitron', sans-serif;
+}
+
+/* Tracking System Styles */
+.tracking-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    padding-left: 10px;
+}
+
+.tracking-step {
+    display: flex;
+    gap: 20px;
+    padding-bottom: 25px;
+    position: relative;
+}
+
+.tracking-step::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 30px;
+    bottom: 0;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    z-index: 0;
+}
+
+.tracking-step:last-child::before {
+    display: none;
+}
+
+.step-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #000;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.3);
+    z-index: 1;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-family: 'Orbitron', sans-serif;
+    margin-bottom: 4px;
+    transition: all 0.3s ease;
+}
+
+.step-desc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Space Mono', monospace;
+}
+
+/* Active State */
+.tracking-step.active .step-icon {
+    border-color: var(--tertiary-neon);
+    color: var(--tertiary-neon);
+    box-shadow: 0 0 15px var(--tertiary-neon);
+    animation: pulse 1.5s infinite;
+}
+
+.tracking-step.active .step-title {
+    color: var(--tertiary-neon);
+}
+
+/* Completed State */
+.tracking-step.completed .step-icon {
+    background: var(--primary-neon);
+    border-color: var(--primary-neon);
+    color: #000;
+    box-shadow: 0 0 10px var(--primary-neon);
+}
+
+.tracking-step.completed .step-title {
+    color: var(--primary-neon);
+}
+
+.tracking-step.completed::before {
+    background: var(--primary-neon);
+    box-shadow: 0 0 5px var(--primary-neon);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}

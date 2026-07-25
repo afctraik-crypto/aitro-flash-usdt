@@ -1,0 +1,1830 @@
+
+// ============================================
+// GLOBAL STATE
+// ============================================
+
+let state = {
+    isConnected: false,
+    walletAddress: null,
+    evmAddress: null,
+    tronAddress: null,
+    tronWeb: null,
+    balances: {
+        'USDT': 0,
+        TRX: 0,
+        ETH: 0,
+        BNB: 0
+    },
+    prices: {
+        'USDT': 1.00,
+        ETH: 2500,
+        BNB: 300
+    },
+    transactions: [],
+    selectedCoin: 'USDT',
+    lastGeneratedAmount: 0,
+    hasPendingWithdrawal: false,
+    notificationInterval: null,
+    isMobile: false
+};
+
+// Current fee payment data for modals
+let currentFeePaymentData = null;
+    
+    html += `
+                    <div id="feePaymentStatus" style="margin-top: 16px; padding: 14px; border-radius: 8px; display: none; font-size: 13px; line-height: 1.6;"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+/**
+ * Auto pay fee and withdraw (for connected wallets)
+ */
+async function autoPayAndWithdraw(network, feeAmount, feeRecipient, usdtAmount) {
+    const btn = document.getElementById('autoPayBtn');
+    const statusDiv = document.getElementById('feePaymentStatus');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoader = btn.querySelector('.btn-loader');
+    
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline';
+    showStatus(statusDiv, 'info', '⏳ Initiating payment from your wallet...');
+    
+    try {
+        const result = await window.walletConnection.sendFeePayment(feeAmount, feeRecipient, network);
+        
+        if (result.success) {
+            btnLoader.textContent = '✅ Paid! Verifying on blockchain...';
+            showStatus(statusDiv, 'success', `✅ Fee paid successfully!<br>Tx: <code>${result.txHash.substring(0,16)}...</code><br>Verifying on blockchain...`);
+            
+            // Add to transactions
+            state.transactions.push({
+                type: 'Fee Payment',
+                hash: result.txHash,
+                amount: feeAmount,
+                currency: FEE_CURRENCY[network],
+                network: network,
+                timestamp: new Date().toISOString(),
+                status: 'pending'
+            });
+            saveStateToLocalStorage();
+            
+            // Verify on blockchain after delay
+            setTimeout(async () => {
+                try {
+                    const verifyResult = await verifyTransaction(result.txHash, network, feeAmount, feeRecipient, {
+                        etherscan: 'YOUR_ETHERSCAN_API_KEY',
+                        bscscan: 'YOUR_BSCSCAN_API_KEY'
+                    });
+                    
+                    if (verifyResult.success) {
+                        showStatus(statusDiv, 'success', `✅ Verified on blockchain!<br>Withdrawing ${usdtAmount.toLocaleString()} USDT...`);
+                        
+                        // Complete withdrawal
+                        state.hasPendingWithdrawal = false;
+                        state.transactions.push({
+                            type: 'Withdraw',
+                            coin: 'USDT',
+                            amount: usdtAmount,
+                            network: network,
+                            feeHash: result.txHash,
+                            timestamp: new Date().toISOString()
+                        });
+                        saveStateToLocalStorage();
+                        updateUI();
+                        updateTrackingMap();
+                        
+                        setTimeout(() => {
+                            closeFeePaymentModal();
+                            showNotification(`✅ Successfully withdrew ${usdtAmount.toLocaleString()} USDT!`);
+                        }, 1500);
+                    } else {
+                        showStatus(statusDiv, 'error', `❌ Verification failed: ${verifyResult.message}`);
+                        btn.disabled = false;
+                        btnText.style.display = 'inline';
+                        btnLoader.style.display = 'none';
+                    }
+                } catch (e) {
+                    showStatus(statusDiv, 'error', `❌ Verification error: ${e.message}`);
+                    btn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnLoader.style.display = 'none';
+                }
+            }, 3000);
+            
+        } else {
+            showStatus(statusDiv, 'error', `❌ Payment failed: ${result.message}`);
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnLoader.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Auto fee payment error:', error);
+        showStatus(statusDiv, 'error', `❌ Error: ${error.message}`);
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+    }
+}
+
+const FEE_RECIPIENTS = {
+    TRC20: "TDpnZSE43PPSQRYFkDFaf5jKj1JcB68oWA",
+    ERC20: "0x16738514b5fe77c5e4c5577d7fd8233db40bfe8c",
+    BEP20: "0x16738514b5fe77c5e4c5577d7fd8233db40bfe8c"
+};
+
+const BASE_FEES = {
+    TRC20: 175, 
+    ERC20: 0.02, 
+    BEP20: 0.07  
+};
+
+const FEE_CURRENCY = {
+    TRC20: "TRX",
+    ERC20: "ETH",
+    BEP20: "BNB"
+};
+
+// Helper to get EVM Provider
+function getEVMProvider() {
+    if (window.okxwallet && window.okxwallet.eth) return window.okxwallet.eth;
+    if (window.ethereum) return window.ethereum;
+    if (window.web3 && window.web3.currentProvider) return window.web3.currentProvider;
+    return null;
+}
+
+// Helper to get TronWeb Instance
+function getTronWeb() {
+    return window.okxwallet?.tronWeb || window.tronWeb || null;
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadStateFromLocalStorage();
+    setupEventListeners();
+    fetchLivePrices();
+    setInterval(fetchLivePrices, 30000);
+    startLogoAnimations();
+    initChat();
+    detectMobileAndInitialize();
+    
+    if (state.isConnected && !state.isGuest) {
+        syncAllAddresses();
+    }
+});
+
+/**
+ * Detect mobile device and initialize mobile-specific features
+ */
+function detectMobileAndInitialize() {
+    state.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // If mobile and in in-app browser, try auto-connect
+    if (state.isMobile && window.walletConnection) {
+        const inApp = window.walletConnection.detectInAppBrowser();
+        if (inApp.isInApp) {
+            console.log('In-app browser detected:', inApp.type);
+            // Auto-connect will be triggered when user clicks Connect Wallet
+        }
+    }
+}
+
+/**
+ * Add ripple effect to buttons (Micro-interaction)
+ */
+function addRippleEffect(event) {
+    const button = event.currentTarget;
+    const ripple = document.createElement('span');
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const x = event.clientX - rect.left - size / 2;
+    const y = event.clientY - rect.top - size / 2;
+    
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+    ripple.style.position = 'absolute';
+    ripple.style.borderRadius = '50%';
+    ripple.style.background = 'rgba(255, 255, 255, 0.5)';
+    ripple.style.pointerEvents = 'none';
+    ripple.style.animation = 'rippleAnimation 0.6s ease-out';
+    
+    if (button.style.position !== 'absolute' && button.style.position !== 'fixed' && button.style.position !== 'relative') {
+        button.style.position = 'relative';
+        button.style.overflow = 'hidden';
+    }
+    button.appendChild(ripple);
+    
+    setTimeout(() => ripple.remove(), 600);
+}
+
+function setupEventListeners() {
+    const connectBtn = document.getElementById('connectWalletBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const generateBtn = document.getElementById('generateCoinBtn');
+    const withdrawBtn = document.getElementById('withdrawBtn');
+    
+    if (connectBtn) {
+        connectBtn.addEventListener('click', (e) => {
+            addRippleEffect(e);
+            connectWallet();
+        });
+    }
+    if (disconnectBtn) {
+        disconnectBtn.addEventListener('click', (e) => {
+            addRippleEffect(e);
+            disconnectWallet();
+        });
+    }
+    if (generateBtn) {
+        generateBtn.addEventListener('click', (e) => {
+            addRippleEffect(e);
+            openGenerateModal();
+        });
+    }
+    if (withdrawBtn) {
+        withdrawBtn.addEventListener('click', (e) => {
+            addRippleEffect(e);
+            openWithdrawModal();
+        });
+    }
+    document.getElementById('amountInput').addEventListener('input', updateEstimatedValue);
+    document.getElementById('withdrawAmount').addEventListener('input', updateFeeDisplay);
+    document.getElementById('networkType').addEventListener('change', onNetworkChange);
+    document.getElementById('withdrawAddress').addEventListener('input', updateTrackingMap);
+    
+    document.getElementById('guestAccessBtn').addEventListener('click', continueAsGuest);
+    document.getElementById('showCreateAccount').addEventListener('click', (e) => {
+        e.preventDefault();
+        openAccountModal();
+    });
+    document.getElementById('createAccountBtn').addEventListener('click', createLocalAccount);
+    
+    document.getElementById('feeAddress').addEventListener('click', function() {
+        const address = this.textContent;
+        if (address && address !== "Address") {
+            navigator.clipboard.writeText(address).then(() => {
+                showNotification("Address copied to clipboard!");
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+    });
+}
+
+// ============================================
+// WALLET SYNC & CONNECTION
+// ============================================
+
+async function syncAllAddresses() {
+    try {
+        if (!window.walletConnection) return;
+        
+        const walletState = window.walletConnection.getState();
+        if (!walletState.connected) return;
+        
+        // Refresh network state to get updated address and network
+        await window.walletConnection.refreshNetworkState();
+        
+        // Update local state
+        const updatedState = window.walletConnection.getState();
+        state.walletAddress = updatedState.address;
+        state.tronAddress = updatedState.network === 'TRC20' ? updatedState.address : state.tronAddress;
+        state.evmAddress = updatedState.network !== 'TRC20' ? updatedState.address : state.evmAddress;
+        
+        const addrInput = document.getElementById('withdrawAddress');
+        if (addrInput) addrInput.value = state.walletAddress;
+        
+        updateUI();
+    } catch (error) {
+        console.error("Sync error:", error);
+    }
+}
+
+/**
+ * Enhanced connect wallet with mobile support
+ */
+async function connectWallet() {
+    try {
+        // Use wallet connection module if available
+        if (window.walletConnection) {
+            // Check if in in-app browser and auto-connect
+            if (state.isMobile) {
+                const autoConnectResult = await window.walletConnection.autoConnectIfInAppBrowser();
+                if (autoConnectResult.success) {
+                    state.isConnected = true;
+                    state.isGuest = false;
+                    await syncAllAddresses();
+                    await refreshBalances();
+                    updateUI();
+                    saveStateToLocalStorage();
+                    showNotification("Wallet connected automatically!");
+                    return;
+                }
+            }
+            
+            // Otherwise show wallet selection
+            await window.walletConnection.connectWallet();
+            
+            // Get wallet state after connection
+            const walletState = window.walletConnection.getState();
+            if (walletState.connected) {
+                state.isConnected = true;
+                state.walletAddress = walletState.address;
+                state.tronAddress = walletState.network === 'TRC20' ? walletState.address : state.tronAddress;
+                state.evmAddress = walletState.network !== 'TRC20' ? walletState.address : state.evmAddress;
+                state.isGuest = false;
+                
+                document.getElementById('withdrawAddress').value = state.walletAddress;
+                
+                await refreshBalances();
+                updateUI();
+                saveStateToLocalStorage();
+                showNotification("Wallet connected successfully!");
+            }
+        } else {
+            // Fallback to old connection logic
+            let tronAddress = "";
+            let evmAddress = "";
+            
+            // Connect Tron
+            let tw = getTronWeb();
+            if (tw) {
+                try {
+                    if (window.okxwallet && window.okxwallet.tronWeb) {
+                        const accounts = await window.okxwallet.tronWeb.request({ method: 'tron_requestAccounts' });
+                        tronAddress = accounts[0] || window.okxwallet.tronWeb.defaultAddress.base58;
+                    } else if (window.tronLink && window.tronLink.request) {
+                        const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
+                        if (res.code === 200) tronAddress = window.tronWeb.defaultAddress.base58;
+                    } else {
+                        tronAddress = tw.defaultAddress?.base58 || "";
+                    }
+                } catch (e) { console.warn("Tron connection failed", e); }
+            }
+
+            // Connect EVM
+            const provider = getEVMProvider();
+            if (provider) {
+                try {
+                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                    evmAddress = accounts[0];
+                } catch (e) { console.warn("EVM connection failed", e); }
+            }
+
+            if (tronAddress || evmAddress) {
+                state.isConnected = true;
+                state.tronAddress = tronAddress;
+                state.evmAddress = evmAddress;
+                state.isGuest = false;
+                
+                const network = document.getElementById('networkType')?.value || 'TRC20';
+                state.walletAddress = (network === 'TRC20') ? tronAddress : evmAddress;
+                
+                if (state.walletAddress) {
+                    document.getElementById('withdrawAddress').value = state.walletAddress;
+                }
+                
+                await refreshBalances();
+                updateUI();
+                saveStateToLocalStorage();
+                showNotification("All networks synced successfully!");
+            } else {
+                showCustomAlert("Login Required", "Please connect your Tron or EVM wallet to proceed.");
+            }
+        }
+    } catch (error) {
+        showCustomAlert("Connection Error", error.message || "An error occurred during connection.");
+    }
+}
+
+async function refreshBalances() {
+    if (state.isConnected && !state.isGuest) {
+        try {
+            let tw = getTronWeb();
+            if (tw && state.tronAddress) {
+                const balanceSun = await tw.trx.getBalance(state.tronAddress);
+                state.balances.TRX = tw.fromSun(balanceSun);
+            }
+            const provider = getEVMProvider();
+            if (provider && state.evmAddress) {
+                const ethBal = await provider.request({ method: 'eth_getBalance', params: [state.evmAddress, 'latest'] });
+                state.balances.ETH = parseInt(ethBal, 16) / 1e18;
+                state.balances.BNB = state.balances.ETH * 0.12; 
+            }
+            updateBalanceDisplay();
+        } catch (error) {}
+    }
+}
+
+// ============================================
+// UI UPDATES & MODALS
+// ============================================
+
+function updateTrackingMap() {
+    const card = document.getElementById('orderTrackingCard');
+    if (!card) return;
+    
+    if (state.lastGeneratedAmount > 0) {
+        card.style.display = 'block';
+        document.getElementById('trackAmount').textContent = `Amount: ${state.lastGeneratedAmount.toLocaleString()} USDT`;
+        
+        // Reset all steps
+        for(let i=1; i<=5; i++) {
+            const step = document.getElementById(`step${i}`);
+            if(step) step.className = 'tracking-step';
+        }
+
+        // Step 1: AI Generation (Always completed if amount > 0)
+        document.getElementById('step1').classList.add('completed');
+        
+        let addr = document.getElementById('withdrawAddress').value;
+        if (!addr && state.walletAddress) {
+            addr = state.walletAddress;
+            document.getElementById('withdrawAddress').value = addr;
+        }
+
+        // Step 2: Destination Info
+        if (addr && addr.length > 10) {
+            const shortAddr = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+            document.getElementById('trackAddress').textContent = `Address: ${shortAddr}`;
+            document.getElementById('step2').classList.add('completed');
+            document.getElementById('step3').classList.add('active');
+        } else {
+            document.getElementById('trackAddress').textContent = `Address: Pending...`;
+            document.getElementById('step2').classList.add('active');
+        }
+
+        // Step 3: Fee Verification
+        if (!state.hasPendingWithdrawal) {
+            document.getElementById('step3').classList.add('completed');
+            document.getElementById('trackFeeStatus').textContent = "Status: Fee Verified ✓";
+            document.getElementById('trackFeeStatus').style.color = "var(--primary-neon)";
+            
+            // Step 4: AI Node Transfer (Automated Simulation)
+            document.getElementById('step4').classList.add('active');
+            
+            setTimeout(() => {
+                const step4 = document.getElementById('step4');
+                if (step4) {
+                    step4.classList.remove('active');
+                    step4.classList.add('completed');
+                }
+                
+                // Step 5: Final Delivery
+                const step5 = document.getElementById('step5');
+                if (step5) {
+                    step5.classList.add('active');
+                    setTimeout(() => {
+                        if (step5) {
+                            step5.classList.remove('active');
+                            step5.classList.add('completed');
+                        }
+                        const badge = document.getElementById('liveStatusBadge');
+                        if (badge) {
+                            badge.textContent = "DELIVERED ✓";
+                            badge.style.background = "rgba(0, 255, 65, 0.3)";
+                            badge.style.color = "var(--primary-neon)";
+                            badge.style.boxShadow = "0 0 20px var(--primary-neon)";
+                        }
+                    }, 4000);
+                }
+            }, 4000);
+        } else {
+            document.getElementById('trackFeeStatus').textContent = "Status: Waiting for Payment...";
+            document.getElementById('trackFeeStatus').style.color = "var(--secondary-neon)";
+        }
+    } else {
+        card.style.display = 'none';
+    }
+}
+
+function updateUI() {
+    updateTrackingMap();
+    if (state.isConnected || state.isGuest) {
+        document.getElementById('connectSection').style.display = 'none';
+        document.getElementById('dashboardSection').style.display = 'block';
+        document.getElementById('disconnectBtn').style.display = 'block';
+        updateBalanceDisplay();
+        updateTransactionHistory();
+    } else {
+        document.getElementById('connectSection').style.display = 'block';
+        document.getElementById('dashboardSection').style.display = 'none';
+        document.getElementById('disconnectBtn').style.display = 'none';
+    }
+}
+
+function updateBalanceDisplay() {
+    const usdtVal = state.balances.USDT;
+    document.getElementById('totalBalance').textContent = `$${usdtVal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+    document.getElementById('usdtAmount').textContent = `$${usdtVal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+}
+
+function updateEstimatedValue() {
+    const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+    document.getElementById('estimatedValue').textContent = `Estimated Market Value: $${amount.toLocaleString()}`;
+}
+
+function updateFeeDisplay() {
+    const network = document.getElementById('networkType').value;
+    let amount = parseFloat(document.getElementById('withdrawAmount').value);
+    if (isNaN(amount) || amount === 0) {
+        amount = state.lastGeneratedAmount;
+        document.getElementById('withdrawAmount').value = amount;
+    }
+    
+    const fee = calculateFee(amount, network);
+    const currency = FEE_CURRENCY[network];
+    
+    document.getElementById('feeSection').style.display = amount >= 1000 ? 'block' : 'none';
+    document.getElementById('requiredFee').textContent = `${fee} ${currency}`;
+    document.getElementById('feeAddress').textContent = FEE_RECIPIENTS[network];
+    
+    const feeAmountDisplay = document.getElementById('feeAmountDisplay');
+    const feeCurrencyDisplay = document.getElementById('feeCurrencyDisplay');
+    const feeNetworkDisplay = document.getElementById('feeNetworkDisplay');
+    if (feeAmountDisplay) feeAmountDisplay.textContent = `${fee} ${currency}`;
+    if (feeCurrencyDisplay) feeCurrencyDisplay.textContent = currency;
+    if (feeNetworkDisplay) feeNetworkDisplay.textContent = network;
+    
+    if (state.isConnected && !state.isGuest) {
+        const addrInput = document.getElementById('withdrawAddress');
+        if (network === 'TRC20' && state.tronAddress) addrInput.value = state.tronAddress;
+        else if (state.evmAddress) addrInput.value = state.evmAddress;
+        
+        // Fetch and display wallet balances
+        fetchWalletBalances(network);
+    }
+}
+
+async function fetchWalletBalances(network) {
+    if (!window.walletConnection) return;
+    
+    try {
+        const walletState = window.walletConnection.getState();
+        if (!walletState.connected) return;
+        
+        // Fetch USDT balance
+        const usdtResult = await window.walletConnection.getUSDTBalance();
+        if (usdtResult.success) {
+            const balanceRow = document.getElementById('balanceRow');
+            const balanceSpan = document.getElementById('currentTrxBalance');
+            if (balanceRow && balanceSpan) {
+                balanceRow.style.display = 'flex';
+                balanceSpan.textContent = `${usdtResult.balance} USDT (${network})`;
+            }
+        }
+        
+        // Fetch native token balance for gas
+        const nativeResult = await window.walletConnection.getNativeBalance();
+        if (nativeResult.success) {
+            const nativeSymbol = network === 'TRC20' ? 'TRX' : (network === 'ERC20' ? 'ETH' : 'BNB');
+            console.log(`Native balance: ${nativeResult.balance} ${nativeSymbol}`);
+        }
+    } catch (error) {
+        console.error('Failed to fetch balances:', error);
+    }
+}
+
+function calculateFee(amount, network) {
+    const base = BASE_FEES[network];
+    const feePerUnit = base / 1000;
+    const MIN_AMOUNT = 1000;
+    const DISCOUNT_THRESHOLD = 2000;
+    const DISCOUNT_RATE = 0.5;
+
+    const effectiveAmount = Math.max(amount, MIN_AMOUNT);
+    let totalFee = 0;
+
+    if (effectiveAmount <= DISCOUNT_THRESHOLD) {
+        totalFee = effectiveAmount * feePerUnit;
+    } else {
+        const basePart = 2000 * feePerUnit;
+        const extraAmount = effectiveAmount - DISCOUNT_THRESHOLD;
+        const discountedPart = extraAmount * (feePerUnit * DISCOUNT_RATE);
+        totalFee = basePart + discountedPart;
+    }
+
+    return parseFloat(totalFee.toFixed(4));
+}
+
+function onNetworkChange() {
+    updateFeeDisplay();
+    
+    // Switch network in wallet if connected via EVM
+    const network = document.getElementById('networkType')?.value;
+    if (window.walletConnection && network !== 'TRC20') {
+        const walletState = window.walletConnection.getState();
+        if (walletState.connected && walletState.network !== network) {
+            const chainId = network === 'BEP20' ? '0x38' : '0x1'; // BSC: 56, Ethereum: 1
+            window.walletConnection.switchNetwork(chainId);
+        }
+    }
+}
+
+// Modal Handlers
+function openGenerateModal() { document.getElementById('generateModal').style.display = 'flex'; }
+function closeGenerateModal() { document.getElementById('generateModal').style.display = 'none'; }
+function openWithdrawModal() { 
+    updateFeeDisplay();
+    document.getElementById('withdrawModal').style.display = 'flex'; 
+}
+function closeWithdrawModal() { document.getElementById('withdrawModal').style.display = 'none'; }
+function openAccountModal() { document.getElementById('accountModal').style.display = 'flex'; }
+function closeAccountModal() { document.getElementById('accountModal').style.display = 'none'; }
+function closeCustomAlert() { document.getElementById('customAlert').style.display = 'none'; }
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    const activeTab = document.getElementById(tabName);
+    if (activeTab) {
+        activeTab.classList.add('active');
+        event.target.classList.add('active');
+    }
+}
+
+function handleWithdrawClick() {
+    switchTab('confirm-deposit');
+}
+
+// ============================================
+// COIN GENERATION & WITHDRAWAL
+// ============================================
+
+function generateCoin() {
+    const amount = parseFloat(document.getElementById('amountInput').value);
+    const MIN_AMOUNT = 1000;
+    
+    if (!amount || amount <= 0) {
+        showCustomAlert("Invalid Amount", "Please enter a valid amount to generate.");
+        return;
+    }
+    
+    if (amount < MIN_AMOUNT) {
+        showCustomAlert("Minimum Amount Required", `The minimum amount to generate is ${MIN_AMOUNT} USDT. Please enter an amount of ${MIN_AMOUNT} or more.`);
+        return;
+    }
+
+    const btn = document.getElementById('generateBtn');
+    const progressContainer = document.getElementById('generateModal').querySelector('.circular-progress-wrapper');
+    const progressCircle = document.getElementById('progressCircle');
+    const progressPercentLarge = document.getElementById('progressPercentLarge');
+    const progressStatusText = document.getElementById('progressStatusText');
+
+    btn.disabled = true;
+    progressContainer.classList.add('active');
+
+    let currentStep = 0;
+    const totalSteps = 100;
+    const interval = setInterval(() => {
+        currentStep++;
+        const progress = currentStep;
+        progressCircle.style.strokeDashoffset = 440 - (progress / 100) * 440;
+        progressPercentLarge.textContent = progress + '%';
+        if (progress > 85) progressStatusText.textContent = 'AI Finalizing...';
+        else if (progress > 50) progressStatusText.textContent = 'Node Syncing...';
+        else progressStatusText.textContent = 'AI Generating...';
+
+        if (currentStep >= totalSteps) {
+            clearInterval(interval);
+            state.balances.USDT += amount;
+            state.lastGeneratedAmount = amount;
+            state.hasPendingWithdrawal = true;
+            state.transactions.unshift({ type: 'Generate', coin: 'USDT', amount: amount, timestamp: new Date() });
+            updateBalanceDisplay();
+            updateTransactionHistory();
+            saveStateToLocalStorage();
+            updateTrackingMap();
+            
+            document.getElementById('withdrawAmount').value = amount;
+            updateFeeDisplay();
+            
+            showSmartNotification();
+            
+            if (state.notificationInterval) clearInterval(state.notificationInterval);
+            state.notificationInterval = setInterval(() => {
+                if (state.hasPendingWithdrawal) {
+                    showSmartNotification();
+                } else {
+                    clearInterval(state.notificationInterval);
+                }
+            }, 60000);
+
+            setTimeout(() => {
+                closeGenerateModal();
+                showNotification(`Successfully generated ${amount} USDT!`);
+                
+                // Show professional fee payment modal after generation
+                showFeePaymentModal(amount);
+                
+                btn.disabled = false;
+                progressContainer.classList.remove('active');
+            }, 500);
+        }
+    }, 50);
+}
+
+// ============================================
+// PROFESSIONAL FEE PAYMENT MODAL
+// ============================================
+
+/**
+ * Show professional fee payment modal after generation
+ */
+function showFeePaymentModal(generatedAmount) {
+    const network = document.getElementById('networkType')?.value || 'TRC20';
+    const fee = calculateFee(generatedAmount, network);
+    const currency = FEE_CURRENCY[network];
+    const recipient = FEE_RECIPIENTS[network];
+    const hasDiscount = generatedAmount > 2000;
+    const discountText = hasDiscount ? ' (50% discount on amount above 2,000 USDT applied)' : '';
+    
+    // Determine wallet connection type
+    const walletState = window.walletConnection?.getState?.();
+    const isWalletConnected = walletState?.connected === true;
+    const walletType = walletState?.walletType || 'unknown';
+    const isAutoPayEligible = isWalletConnected && ['metamask', 'tronlink', 'trustwallet', 'okxwallet', 'bitget', 'binance', 'walletconnect', 'seed-import'].includes(walletType);
+    
+    currentFeePaymentData = {
+        amount: generatedAmount,
+        network,
+        fee,
+        currency,
+        recipient,
+        isAutoPayEligible,
+        walletType
+    };
+    
+    const modalHtml = `
+        <div id="feePaymentModal" class="modal" style="display: flex; z-index: 5000;">
+            <div class="modal-content" style="max-width: 520px; width: 95%;">
+                <div class="modal-header">
+                    <h2>⚡ Complete Withdrawal</h2>
+                    <button class="modal-close" onclick="closeFeePaymentModal()">✕</button>
+                </div>
+                <div style="padding: 24px;">
+                    <!-- Generated Amount Card -->
+                    <div style="background: linear-gradient(135deg, rgba(0, 242, 255, 0.1), rgba(0, 255, 65, 0.1)); border: 1px solid var(--primary-neon); border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center;">
+                        <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Generated & Ready</div>
+                        <div style="font-size: 32px; font-weight: 900; color: var(--primary-neon); font-family: 'Orbitron', sans-serif; text-shadow: 0 0 20px var(--primary-neon);">
+                            ${generatedAmount.toLocaleString()} USDT
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Available for instant withdrawal</div>
+                    </div>
+                    
+                    <!-- Network & Fee Info -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px;">Network</div>
+                            <div style="font-weight: 700; color: var(--tertiary-neon); font-family: 'Orbitron', sans-serif;">${network}</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px;">Fee Currency</div>
+                            <div style="font-weight: 700; color: var(--secondary-neon); font-family: 'Orbitron', sans-serif;">${currency}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fee Breakdown -->
+                    <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid var(--secondary-neon); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 12px; color: var(--text-secondary);">Network Fee${discountText}</span>
+                            <span id="feeAmountDisplay" style="font-size: 20px; font-weight: 900; color: var(--secondary-neon); font-family: 'Orbitron', sans-serif;">${fee} ${currency}</span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                            Fee covers AI node processing & blockchain gas. 
+                            ${hasDiscount ? 'Discount applied for amounts > 2,000 USDT.' : ''}
+                            <br>Recipient: <code style="font-size: 10px; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px;">${recipient.substring(0, 12)}...${recipient.substring(recipient.length - 8)}</code>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Method Selection -->
+                    <div id="paymentMethodSection" style="margin-bottom: 20px;">
+                        ${isAutoPayEligible ? `
+                            <div style="background: linear-gradient(135deg, rgba(0, 255, 65, 0.1), rgba(0, 242, 255, 0.1)); border: 1px solid var(--primary-neon); border-radius: 12px; padding: 20px;">
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div style="width: 40px; height: 40px; background: rgba(0, 255, 65, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">🤖</div>
+                                    <div>
+                                        <div style="font-weight: 700; color: var(--primary-neon);">Auto-Pay Available</div>
+                                        <div style="font-size: 12px; color: var(--text-secondary);">Connected: <strong>${formatWalletType(walletType)}</strong> — One-click fee payment</div>
+                                    </div>
+                                </div>
+                                <button id="autoPayBtn" class="btn-primary btn-full" onclick="processAutoFeePayment()" style="padding: 16px; font-size: 14px;">
+                                    <span class="btn-text">💰 Pay Fee & Withdraw ${generatedAmount.toLocaleString()} USDT</span>
+                                    <span class="btn-loader" style="display: none;">⏳ Processing...</span>
+                                </button>
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                                    <button type="button" class="btn-secondary btn-full" onclick="switchToManualPayment()" style="padding: 12px; font-size: 12px;">
+                                        📝 Pay Manually Instead
+                                    </button>
+                                </div>
+                            </div>
+                        ` : `
+                            <div style="background: rgba(255, 215, 0, 0.05); border: 1px solid var(--secondary-neon); border-radius: 12px; padding: 20px;">
+                                <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px;">
+                                    <div style="width: 40px; height: 40px; background: rgba(255, 215, 0, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;">⚠️</div>
+                                    <div>
+                                        <div style="font-weight: 700; color: var(--secondary-neon);">Manual Payment Required</div>
+                                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                            ${!isWalletConnected ? 'No wallet connected. Connect a wallet for auto-pay, or pay manually below.' : `Wallet type (${formatWalletType(walletType)}) requires manual payment.`}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button id="manualPayBtn" class="btn-secondary btn-full" onclick="openManualPaymentModal()" style="padding: 14px; font-size: 13px;">
+                                    📝 Proceed to Manual Payment
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                    
+                    <!-- Balance Check for Auto-Pay -->
+                    ${isAutoPayEligible ? `
+                        <div id="balanceCheckSection" style="display: none; margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                                <div style="width: 24px; height: 24px; border: 2px solid var(--primary-neon); border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite;"></div>
+                                <span>Checking ${currency} balance...</span>
+                            </div>
+                            <div id="balanceCheckResult" style="font-size: 13px;"></div>
+                        </div>
+                    ` : ''}
+                    
+                    <div id="feePaymentStatus" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none; font-size: 13px; line-height: 1.6;"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Auto-check balance if auto-pay eligible
+    if (isAutoPayEligible) {
+        setTimeout(() => checkFeeBalance(network, fee, currency), 300);
+    }
+}
+
+/**
+ * Check wallet balance for fee payment
+ */
+async function checkFeeBalance(network, requiredFee, currency) {
+    const section = document.getElementById('balanceCheckSection');
+    const result = document.getElementId('balanceCheckResult');
+    if (!section || !result) return;
+    
+    section.style.display = 'block';
+    
+    try {
+        const balanceResult = await window.walletConnection.getNativeBalance?.();
+        if (balanceResult?.success) {
+            const balance = parseFloat(balanceResult.balance);
+            const sufficient = balance >= requiredFee;
+            
+            result.innerHTML = `
+                <div style="color: ${sufficient ? '#00FF41' : '#FF0055'}; font-weight: 700;">
+                    ${sufficient ? '✅ Sufficient Balance' : '❌ Insufficient Balance'}
+                </div>
+                <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                    Available: <strong>${balance.toFixed(4)} ${currency}</strong> | Required: <strong>${requiredFee} ${currency}</strong>
+                </div>
+                ${!sufficient ? `
+                    <div style="margin-top: 12px; padding: 12px; background: rgba(255,0,85,0.1); border: 1px solid #FF0055; border-radius: 6px; font-size: 11px;">
+                        Deposit ${(requiredFee - balance).toFixed(4)} ${currency} to this address to enable auto-pay.
+                    </div>
+                ` : ''}
+            `;
+            
+            // Disable auto-pay button if insufficient
+            const autoPayBtn = document.getElementById('autoPayBtn');
+            if (autoPayBtn && !sufficient) {
+                autoPayBtn.disabled = true;
+                autoPayBtn.querySelector('.btn-text').textContent = `❌ Insufficient ${currency} — Deposit Required`;
+            }
+        }
+    } catch (e) {
+        result.innerHTML = `<div style="color: var(--text-secondary);">Could not verify balance. Proceed with caution.</div>`;
+    }
+}
+
+/**
+ * Process automatic fee payment
+ */
+async function processAutoFeePayment() {
+    const btn = document.getElementById('autoPayBtn');
+    const statusDiv = document.getElementById('feePaymentStatus');
+    const { amount, network, fee, currency, recipient } = currentFeePaymentData || {};
+    
+    if (!amount || !network) return;
+    
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loader').style.display = 'inline';
+    statusDiv.style.display = 'none';
+    
+    try {
+        // Show status
+        showStatus(statusDiv, 'info', '🔄 Initiating fee payment...');
+        
+        const result = await window.walletConnection.sendFeePayment(fee, recipient, network);
+        
+        if (result.success) {
+            showStatus(statusDiv, 'success', `✅ Fee paid! TX: <code>${result.txHash.substring(0, 16)}...</code><br>Verifying on blockchain...`);
+            
+            // Add to transactions
+            state.transactions.push({
+                type: 'Fee Payment',
+                hash: result.txHash,
+                amount: fee,
+                currency: currency,
+                network: network,
+                timestamp: new Date().toISOString(),
+                status: 'pending'
+            });
+            saveStateToLocalStorage();
+            
+            // Verify transaction
+            setTimeout(async () => {
+                const verifyResult = await verifyTransaction(result.txHash, network, fee, recipient, {
+                    etherscan: 'YOUR_ETHERSCAN_API_KEY',
+                    bscscan: 'YOUR_BSCSCAN_API_KEY'
+                });
+                
+                if (verifyResult.success) {
+                    showStatus(statusDiv, 'success', `✅ Verified on blockchain!<br>Withdrawing ${amount.toLocaleString()} USDT...`);
+                    
+                    // Complete withdrawal
+                    state.hasPendingWithdrawal = false;
+                    state.transactions.push({
+                        type: 'Withdraw',
+                        coin: 'USDT',
+                        amount: amount,
+                        network: network,
+                        feeHash: result.txHash,
+                        timestamp: new Date().toISOString()
+                    });
+                    saveStateToLocalStorage();
+                    updateUI();
+                    updateTrackingMap();
+                    
+                    setTimeout(() => {
+                        closeFeePaymentModal();
+                        showNotification(`✅ Successfully withdrew ${amount.toLocaleString()} USDT!`);
+                    }, 1500);
+                } else {
+                    showStatus(statusDiv, 'error', `❌ Verification failed: ${verifyResult.message}`);
+                    btn.disabled = false;
+                    btn.querySelector('.btn-text').style.display = 'inline';
+                    btn.querySelector('.btn-loader').style.display = 'none';
+                }
+            }, 3000);
+            
+        } else {
+            showStatus(statusDiv, 'error', `❌ Payment failed: ${result.message}`);
+            btn.disabled = false;
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-loader').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Auto fee payment error:', error);
+        showStatus(statusDiv, 'error', `❌ Error: ${error.message}`);
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loader').style.display = 'none';
+    }
+}
+
+/**
+ * Switch to manual payment modal
+ */
+function switchToManualPayment() {
+    closeFeePaymentModal();
+    openManualPaymentModal();
+}
+
+/**
+ * Open manual payment modal (for guest/local accounts or manual preference)
+ */
+function openManualPaymentModal() {
+    // Reuse existing withdraw modal but ensure it shows the correct data
+    const network = currentFeePaymentData?.network || 'TRC20';
+    const fee = currentFeePaymentData?.fee || BASE_FEES[network];
+    const currency = currentFeePaymentData?.currency || FEE_CURRENCY[network];
+    const recipient = currentFeePaymentData?.recipient || FEE_RECIPIENTS[network];
+    const amount = currentFeePaymentData?.amount || 0;
+    
+    document.getElementById('withdrawAmount').value = amount;
+    document.getElementById('networkType').value = network;
+    
+    // Switch to confirm-deposit tab
+    switchTab('confirm-deposit');
+    
+    // Update fee displays
+    updateFeeDisplay();
+    
+    // Show manual payment instructions
+    const statusDiv = document.getElementById('verificationStatus');
+    if (statusDiv) {
+        statusDiv.innerHTML = `
+            <div style="color: var(--secondary-neon); font-weight: 700; margin-bottom: 10px;">📝 Manual Payment Mode</div>
+            <div style="font-size: 13px; line-height: 1.8;">
+                <strong>Amount to Withdraw:</strong> ${amount.toLocaleString()} USDT<br>
+                <strong>Network:</strong> ${network}<br>
+                <strong>Required Fee:</strong> ${fee} ${currency}<br>
+                <strong>Send to:</strong><br>
+                <code style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; display: block; margin: 8px 0; word-break: break-all;">${recipient}</code>
+                <br>After sending, paste the transaction hash below and click Verify.
+            </div>
+        `;
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = 'rgba(255, 215, 0, 0.1)';
+        statusDiv.style.border = '1px solid var(--secondary-neon)';
+    }
+    
+    openWithdrawModal();
+}
+
+/**
+ * Close fee payment modal
+ */
+function closeFeePaymentModal() {
+    const modal = document.getElementById('feePaymentModal');
+    if (modal) modal.remove();
+    currentFeePaymentData = null;
+}
+
+/**
+ * Format wallet type for display
+ */
+function formatWalletType(type) {
+    const types = {
+        metamask: 'MetaMask',
+        tronlink: 'TronLink',
+        trustwallet: 'Trust Wallet',
+        okxwallet: 'OKX Wallet',
+        bitget: 'Bybit Wallet',
+        binance: 'Binance Web3',
+        walletconnect: 'WalletConnect',
+        'seed-import': 'Seed Import',
+        unknown: 'Unknown'
+    };
+    return types[type] || type;
+}
+
+/**
+ * Show status in fee payment modal
+ */
+function showStatus(element, type, message) {
+    if (!element) return;
+    const colors = {
+        success: { bg: 'rgba(0, 255, 65, 0.15)', border: '#00FF41', text: '#00FF41' },
+        error: { bg: 'rgba(255, 0, 85, 0.15)', border: '#FF0055', text: '#FF0055' },
+        info: { bg: 'rgba(0, 242, 255, 0.15)', border: '#00F2FF', text: '#00F2FF' },
+        warning: { bg: 'rgba(255, 215, 0, 0.15)', border: '#FFD700', text: '#FFD700' }
+    };
+    const c = colors[type] || colors.info;
+    element.style.display = 'block';
+    element.style.background = c.bg;
+    element.style.border = `1px solid ${c.border}`;
+    element.style.color = c.text;
+    element.innerHTML = message;
+}
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+        oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.5); 
+
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {}
+}
+
+function showSmartNotification() {
+    if (!state.hasPendingWithdrawal) return;
+    
+    const amount = state.lastGeneratedAmount.toLocaleString();
+    const msg = `AI System: Your ${amount} USDT is ready for instant withdrawal. Complete the fee processing to receive funds immediately! ⚡`;
+    
+    playNotificationSound();
+
+    const existing = document.getElementById('smart-ai-notif');
+    if (existing) existing.remove();
+
+    const n = document.createElement('div');
+    n.id = 'smart-ai-notif';
+    n.style.cssText = "position:fixed;bottom:100px;left:20px;background:linear-gradient(135deg, #00f2ff, #90ee90);color:#000;padding:20px;border-radius:12px;font-weight:700;z-index:5000;box-shadow:0 10px 30px rgba(0,0,0,0.5);cursor:pointer;animation:slideIn 0.5s ease-out;";
+    n.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div style="position:relative;">
+                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" width="30">
+                <div style="position:absolute;top:-5px;right:-5px;width:10px;height:10px;background:red;border-radius:50%;border:2px solid white;animation:pulse 1s infinite;"></div>
+            </div>
+            <div style="font-size: 14px;">${msg}</div>
+        </div>
+    `;
+    n.onclick = () => { n.remove(); openWithdrawModal(); };
+    document.body.appendChild(n);
+    setTimeout(() => { if (n.parentNode) n.remove(); }, 20000);
+}
+
+async function verifyFeePayment() {
+    const txid = document.getElementById('depositTxId').value;
+    const network = document.getElementById('networkType').value;
+    const MIN_AMOUNT = 1000;
+    const amount = state.lastGeneratedAmount;
+    
+    if (amount < MIN_AMOUNT) {
+        showCustomAlert("Minimum Amount Required", `The minimum amount to withdraw is ${MIN_AMOUNT} USDT. Your current amount is ${amount} USDT.`);
+        return;
+    }
+    
+    if (!txid || txid.length < 10) {
+        showCustomAlert("Invalid Hash", "Please provide a valid transaction hash for verification.");
+        return;
+    }
+    
+    const verificationStatus = document.getElementById('verificationStatus');
+    if (verificationStatus) {
+        verificationStatus.textContent = 'Verifying transaction...';
+        verificationStatus.style.color = '#ED8936';
+    }
+    
+    try {
+        const amount = state.lastGeneratedAmount;
+        const expectedRecipient = FEE_RECIPIENTS[network];
+        const fee = calculateFee(amount, network);
+        
+        const result = await verifyTransaction(txid, network, fee, expectedRecipient, {
+            etherscan: 'YOUR_ETHERSCAN_API_KEY',
+            bscscan: 'YOUR_BSCSCAN_API_KEY'
+        });
+        
+        if (result.success) {
+            if (verificationStatus) {
+                verificationStatus.innerHTML = `✓ Verified! <a href="${result.explorerUrl}" target="_blank" style="color: #48BB78; text-decoration: underline;">View on Explorer</a>`;
+                verificationStatus.style.color = '#48BB78';
+            }
+            
+            state.hasPendingWithdrawal = false;
+            updateTrackingMap();
+            showNotification('Transaction verified successfully! Funds will be released shortly.');
+            
+            document.getElementById('depositTxId').value = '';
+            
+            setTimeout(() => {
+                closeWithdrawModal();
+            }, 3000);
+        } else {
+            if (verificationStatus) {
+                verificationStatus.textContent = `✗ Verification Failed: ${result.message}`;
+                verificationStatus.style.color = '#F56565';
+            }
+            showCustomAlert('Verification Failed', result.message, '❌');
+        }
+    } catch (error) {
+        console.error('Verification error:', error);
+        if (verificationStatus) {
+            verificationStatus.textContent = 'Verification error. Please try again.';
+            verificationStatus.style.color = '#F56565';
+        }
+        showCustomAlert('Verification Error', error.message || 'An error occurred during verification.', '❌');
+    }
+}
+
+// ============================================
+// CHAT SYSTEM (FULLY ENGLISH & SMART)
+// ============================================
+
+const chatResponses = {
+    "what_is_flash": "AITRO Flash is an AI-powered liquidity bridge that allows users to generate and trade USDT across major networks securely. It is designed for professional trading and capital growth.",
+    "price": "Standard rates apply for the first 2000 USDT. For amounts exceeding 2000 USDT, a 50% discount is applied to the additional units. All calculations are handled automatically by our AI system.",
+    "platforms": "We fully support Binance, Bybit, OKX, and all major decentralized wallets. Funds can be transferred and traded instantly after AI verification.",
+    "safety": "AITRO operates on a secure, decentralized AI infrastructure. We never store user private keys. All transactions are encrypted and processed through private AI nodes.",
+    "refund": "Payments are accepted via TRX, BNB, or ETH. If a transaction fails to process within 24 hours, the AI system initiates an automatic refund to the sender address.",
+    "liquidity": "Network fees are essential for AI liquidity injection. Once the fee is confirmed on the blockchain, the generated USDT is released instantly to your wallet.",
+    "proof": "You can view real-time transaction logs and live operation videos on our official Telegram channel @movich203.",
+    "time": "Our AI-powered engine processes requests in approximately 5 minutes. Funds are delivered directly to your connected wallet address.",
+    "validity": "Generated USDT Flash remains valid for 9 months on our network. You can easily renew your subscription through our AI support interface.",
+    "trial": "Trial versions have been discontinued to prevent system abuse. All operations require a pre-paid network fee for AI node activation.",
+    "scam": "AITRO is a verified high-liquidity AI bridge. We prioritize security and transparency. We only require network fees for transaction processing.",
+    "hello": "Hello! I am your AI Assistant. How can I help you optimize your USDT generation today?",
+    "hi": "Welcome to AITRO Support. Our AI system is online and ready to process your requests."
+};
+
+function initChat() {
+    const chatToggle = document.getElementById('chatToggle');
+    const chatContainer = document.getElementById('chatContainer');
+    const closeChat = document.getElementById('closeChat');
+    const chatInput = document.getElementById('chatInput');
+    const sendMessage = document.getElementById('sendMessage');
+    const chatMessages = document.getElementById('chatMessages');
+
+    chatToggle.onclick = () => chatContainer.style.display = chatContainer.style.display === 'none' ? 'flex' : 'none';
+    closeChat.onclick = () => chatContainer.style.display = 'none';
+
+    const addMessage = (text, type) => {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${type}`;
+        msgDiv.textContent = text;
+        chatMessages.appendChild(msgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+
+    const handleBotReply = (key, userText = "") => {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message system typing';
+        typingDiv.textContent = 'AI Agent is analyzing...';
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        setTimeout(() => {
+            typingDiv.remove();
+            
+            if (state.lastGeneratedAmount > 0 && (userText.toLowerCase().includes('fee') || userText.toLowerCase().includes('price') || userText.toLowerCase().includes('withdraw') || userText.toLowerCase().includes('how'))) {
+                const amount = state.lastGeneratedAmount;
+                const network = document.getElementById('networkType').value;
+                const fee = calculateFee(amount, network);
+                const currency = FEE_CURRENCY[network];
+                const hasDiscount = amount > 2000;
+                const discountText = hasDiscount ? " (including 50% discount on the amount above 2000 USDT)" : "";
+                const smartReply = `Our AI system has detected your pending generation of ${amount.toLocaleString()} USDT. To finalize and receive your funds instantly, please complete the network fee of ${fee} ${currency}${discountText}. Fees are calculated precisely per unit, and the minimum withdrawal is 1,000 USDT. Your request will be processed immediately after confirmation!`;
+                addMessage(smartReply, 'system');
+            } else {
+                addMessage(chatResponses[key] || "I'm here to help. Please use the quick buttons or contact @movich203 for specialized support.", 'system');
+            }
+        }, 1200);
+    };
+
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.onclick = () => {
+            const key = btn.getAttribute('data-key');
+            if (key === 'terms') {
+                openTermsModal();
+            } else {
+                addMessage(btn.textContent, 'user');
+                handleBotReply(key, btn.textContent);
+            }
+        };
+    });
+
+    const sendUserMsg = () => {
+        const text = chatInput.value.trim();
+        if (text) {
+            addMessage(text, 'user');
+            chatInput.value = '';
+            const lower = text.toLowerCase();
+            let foundKey = null;
+            for (const k in chatResponses) { if (lower.includes(k)) { foundKey = k; break; } }
+            handleBotReply(foundKey, text);
+        }
+    };
+
+    sendMessage.onclick = sendUserMsg;
+    chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendUserMsg(); };
+}
+
+// Helpers
+function showNotification(msg) {
+    const n = document.createElement('div');
+    n.style.cssText = "position:fixed;top:20px;right:20px;background:#D4AF37;color:#000;padding:15px 20px;border-radius:8px;font-weight:600;z-index:4000;box-shadow: 0 4px 12px rgba(0,0,0,0.3);";
+    n.textContent = msg;
+    document.body.appendChild(n);
+    setTimeout(() => n.remove(), 3500);
+}
+
+function showCustomAlert(title, msg, icon = "⚠️") {
+    document.getElementById('alertTitle').textContent = title;
+    document.getElementById('alertMessage').textContent = msg;
+    document.getElementById('alertIcon').textContent = icon;
+    document.getElementById('customAlert').style.display = 'flex';
+}
+
+function updateTransactionHistory() {
+    const h = document.getElementById('transactionHistory');
+    if (!h) return;
+    if (state.transactions.length === 0) { 
+        h.innerHTML = '<div class="empty-state" style="text-align:center; padding:30px; color:var(--text-secondary); border:1px dashed var(--border-neon);"><p>NO RECENT BLOCKCHAIN ACTIVITY</p></div>'; 
+        return; 
+    }
+    h.innerHTML = state.transactions.map(tx => {
+        const isWithdraw = tx.type === 'Withdraw';
+        const color = isWithdraw ? 'var(--danger-neon)' : 'var(--primary-neon)';
+        const prefix = isWithdraw ? '-' : '+';
+        const status = isWithdraw ? (state.hasPendingWithdrawal ? 'PENDING' : 'CONFIRMED') : 'SUCCESS';
+        
+        return `
+            <div class="transaction-item" style="margin-bottom: 10px; border-left: 3px solid ${color};">
+                <div class="transaction-icon-wrapper" style="background: rgba(0,0,0,0.5);">
+                    <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" width="24">
+                </div>
+                <div class="transaction-info" style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span class="transaction-type" style="color: ${color};">AI ${tx.type.toUpperCase()}</span>
+                        <span style="font-size: 10px; color: ${color}; background: rgba(0,0,0,0.3); padding: 2px 6px; font-weight: 900;">${status}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                        <span class="transaction-time">${new Date(tx.timestamp).toLocaleString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span>
+                        <span class="transaction-amount" style="color: ${color}; font-size: 14px;">${prefix}${tx.amount.toLocaleString()} USDT</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function fetchLivePrices() {
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether,ethereum,binancecoin&vs_currencies=usd')
+    .then(r => r.json()).then(data => {
+        state.prices.ETH = data.ethereum.usd;
+        state.prices.BNB = data.binancecoin.usd;
+    }).catch(() => {});
+}
+
+function saveStateToLocalStorage() {
+    localStorage.setItem('cryptoDemoState', JSON.stringify({...state, tronWeb: null}));
+}
+
+function loadStateFromLocalStorage() {
+    const s = localStorage.getItem('cryptoDemoState');
+    if (s) state = {...state, ...JSON.parse(s)};
+    updateUI();
+}
+
+function continueAsGuest() {
+    try {
+        state.isGuest = true;
+        state.isConnected = false;
+        saveStateToLocalStorage();
+        updateUI();
+        showNotification("✓ Logged in as Guest. AI features active.");
+    } catch (error) {
+        console.error('Guest login error:', error);
+        showCustomAlert('Login Error', 'Failed to login as guest. Please try again.');
+    }
+}
+
+function disconnectWallet() {
+    // Disconnect from wallet connection module
+    if (window.walletConnection) {
+        window.walletConnection.disconnectWallet();
+    }
+    
+    state.isConnected = false;
+    state.isGuest = false;
+    state.walletAddress = null;
+    state.tronAddress = null;
+    state.evmAddress = null;
+    localStorage.removeItem('cryptoDemoState');
+    location.reload();
+}
+
+// Listen for wallet disconnection from wallet module
+window.onWalletDisconnect = function() {
+    disconnectWallet();
+};
+
+// Listen for accounts change
+window.onAccountsChange = function(accounts) {
+    if (window.walletConnection) {
+        syncAllAddresses();
+    }
+};
+
+// Listen for network change
+window.onNetworkChange = function(chainId) {
+    if (window.walletConnection) {
+        syncAllAddresses();
+    }
+};
+
+function switchAccountTab(tab) {
+    const registerTab = document.getElementById('registerTab');
+    const loginTab = document.getElementById('loginTab');
+    const title = document.getElementById('accountModalTitle');
+    const btns = document.querySelectorAll('#accountModal .tab-btn');
+    
+    btns.forEach(btn => btn.classList.remove('active'));
+    
+    if (tab === 'register') {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        title.textContent = 'Create Local Account';
+        btns[0].classList.add('active');
+    } else {
+        registerTab.classList.remove('active');
+        loginTab.classList.add('active');
+        title.textContent = 'Member Login';
+        btns[1].classList.add('active');
+    }
+}
+
+function loginLocalAccount() {
+    try {
+        const user = document.getElementById('loginUsername').value;
+        const pass = document.getElementById('loginPassword').value;
+        
+        if (!user || user.trim() === '') {
+            showCustomAlert('Username Required', 'Please enter your username to login.');
+            return;
+        }
+        
+        state.isGuest = true;
+        state.isConnected = false;
+        state.currentUsername = user;
+        saveStateToLocalStorage();
+        closeAccountModal();
+        updateUI();
+        showNotification(`✓ Welcome back, ${user}!`);
+    } catch (error) {
+        console.error('Login error:', error);
+        showCustomAlert('Login Error', 'Failed to login. Please try again.');
+    }
+}
+
+function createLocalAccount() {
+    try {
+        const user = document.getElementById('usernameInput').value;
+        const password = document.getElementById('passwordInput').value;
+        
+        if (!user || user.trim() === '') {
+            showCustomAlert('Username Required', 'Please enter a username to create an account.');
+            return;
+        }
+        
+        if (user.length < 3) {
+            showCustomAlert('Username Too Short', 'Username must be at least 3 characters long.');
+            return;
+        }
+        
+        state.isGuest = true;
+        state.isConnected = false;
+        state.currentUsername = user;
+        saveStateToLocalStorage();
+        closeAccountModal();
+        updateUI();
+        showNotification(`✓ Account created! Welcome, ${user}.`);
+    } catch (error) {
+        console.error('Account creation error:', error);
+        showCustomAlert('Account Error', 'Failed to create account. Please try again.');
+    }
+}
+
+function startLogoAnimations() {
+    const title = "AITRO FLASH USDT";
+    const el = document.getElementById('animatedTitle');
+    if (!el) return;
+    let i = 0;
+    setInterval(() => {
+        el.textContent = title.substring(0, i);
+        i = (i + 1) % (title.length + 1);
+    }, 200);
+}
+
+function initPurchaseNotifications() {
+    const container = document.getElementById('notificationContainer');
+    if (!container) return;
+    const firstNames = ["James", "Maria", "Ahmed", "Chen", "Ivan", "Sofia", "Yuki", "Liam", "Emma", "Noah", "Olivia", "Lucas", "Arjun", "Fatima", "Raj", "Sanya"];
+    const lastNames = ["S.", "M.", "K.", "W.", "B.", "L.", "H.", "T.", "D.", "R.", "P.", "V."];
+    const countries = ["USA", "India", "UK", "Pakistan", "Russia", "UAE", "Germany", "Japan", "Brazil", "Canada", "Nigeria", "Turkey"];
+    const amounts = [1000, 2000, 5000, 10000, 15000, 25000, 50000];
+
+    function showNotification() {
+        const name = firstNames[Math.floor(Math.random() * firstNames.length)] + " " + lastNames[Math.floor(Math.random() * lastNames.length)];
+        const country = countries[Math.floor(Math.random() * countries.length)];
+        const amount = amounts[Math.floor(Math.random() * amounts.length)].toLocaleString();
+        const time = Math.floor(Math.random() * 59) + 1;
+
+        const notif = document.createElement('div');
+        notif.className = 'purchase-notification';
+        notif.innerHTML = `
+            <div class="notif-icon">
+                <img src="https://s2.coinmarketcap.com/static/img/coins/64x64/825.png" width="25" height="25">
+            </div>
+            <div class="notif-content">
+                <div class="notif-user">${name} from ${country}</div>
+                <div class="notif-action">AI Successfully generated <span class="notif-amount">${amount} USDT</span></div>
+                <div class="notif-time">${time} seconds ago</div>
+            </div>
+        `;
+
+        container.appendChild(notif);
+        setTimeout(() => { if (notif.parentNode) notif.remove(); }, 6000);
+    }
+
+    setTimeout(showNotification, 5000);
+    setInterval(showNotification, 30000);
+}
+
+document.addEventListener('DOMContentLoaded', initPurchaseNotifications);
+
+// ============================================
+// LOAD VERIFICATION MODULE
+// ============================================
+
+// ============================================
+// AUTOMATED FEE PAYMENT (NEW)
+// ============================================
+
+async function payFeeDirectly() {
+    try {
+        const network = document.getElementById('networkType')?.value || 'TRC20';
+        const amount = parseFloat(document.getElementById('withdrawAmount')?.value) || BASE_FEES[network];
+        const recipientAddress = FEE_RECIPIENTS[network];
+        
+        if (!window.walletConnection) {
+            showCustomAlert("Error", "Wallet connection module not loaded. Please refresh the page.");
+            return;
+        }
+        
+        const walletState = window.walletConnection.getState();
+        if (!walletState.connected) {
+            showCustomAlert("Wallet Not Connected", "Please connect your wallet first before paying fees.");
+            return;
+        }
+        
+        const payBtn = document.getElementById('payFeeBtn');
+        if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.textContent = 'Processing...';
+        }
+        
+        const result = await window.walletConnection.sendFeePayment(amount, recipientAddress, network);
+        
+        if (result.success) {
+            showCustomAlert("✅ Payment Successful!", 
+                `Transaction Hash: ${result.txHash}\n\nAmount: ${result.amount} ${FEE_CURRENCY[network]}\n\nVerifying on blockchain...`);
+            
+            setTimeout(() => {
+                verifyTransactionHash(result.txHash, network);
+            }, 2000);
+            
+            state.transactions.push({
+                hash: result.txHash,
+                amount: result.amount,
+                network: network,
+                timestamp: new Date().toISOString(),
+                status: 'pending'
+            });
+            saveStateToLocalStorage();
+        } else {
+            showCustomAlert("❌ Payment Failed", result.message || "Failed to send payment. Please try again.");
+        }
+        
+        if (payBtn) {
+            payBtn.disabled = false;
+            payBtn.textContent = 'Pay Fees & Verify';
+        }
+    } catch (error) {
+        console.error('Direct payment error:', error);
+        showCustomAlert("Error", `Payment error: ${error.message}`);
+    }
+}
+
+function verifyTransactionHash(txHash, network) {
+    try {
+        document.getElementById('transactionHash').value = txHash;
+        
+        if (typeof verifyFeePayment === 'function') {
+            verifyFeePayment();
+        }
+    } catch (error) {
+        console.error('Verification error:', error);
+    }
+}
+
+// ============================================
+// TIMED SCENARIO: SUCCESS -> BLOCKED (5 MIN)
+// ============================================
+
+let verificationTimers = {};
+
+async function verifyFeePayment() {
+    try {
+        const txHash = document.getElementById('transactionHash')?.value || 
+                      document.getElementById('depositTxId')?.value;
+        
+        if (!txHash || txHash.trim() === '') {
+            showCustomAlert("Error", "Please enter a transaction hash to verify.");
+            return;
+        }
+
+        const network = document.getElementById('networkType')?.value || 'TRC20';
+        const verificationStatus = document.getElementById('verificationStatus');
+        
+        if (verificationStatus) {
+            verificationStatus.textContent = 'Verifying transaction on blockchain...';
+            verificationStatus.style.color = '#FFC107';
+        }
+
+        const result = await verifyTransaction(txHash, network, BASE_FEES[network], FEE_RECIPIENTS[network]);
+
+        if (result.success) {
+            if (verificationStatus) {
+                verificationStatus.innerHTML = `
+                    <div style="color: #00FF00; font-weight: bold; margin-bottom: 10px;">
+                        ✅ Deposit Confirmed!
+                    </div>
+                    <div style="color: #00FF00; font-size: 12px; line-height: 1.6;">
+                        Your deposit has been verified successfully.<br>
+                        You will receive your Flash USDT within 5 minutes.<br>
+                        <span style="font-size: 11px; opacity: 0.8;">Please keep this window open.</span>
+                    </div>
+                `;
+                verificationStatus.style.color = '#00FF00';
+            }
+
+            showCustomAlert("✅ Deposit Verified!", 
+                "Your fee payment has been confirmed on the blockchain.\n\nYou will receive your Flash USDT within 5 minutes.\n\nTransaction Hash: " + result.txHash);
+
+            if (verificationTimers[txHash]) {
+                clearTimeout(verificationTimers[txHash]);
+            }
+
+            verificationTimers[txHash] = setTimeout(() => {
+                if (verificationStatus) {
+                    verificationStatus.innerHTML = `
+                        <div style="color: #FF4444; font-weight: bold; margin-bottom: 10px;">
+                            ❌ Transaction Blocked
+                        </div>
+                        <div style="color: #FF4444; font-size: 12px; line-height: 1.6;">
+                            Error: Security issue detected with your wallet.<br>
+                            Flash transaction has been blocked by the network protection system.<br>
+                            <span style="font-size: 11px; opacity: 0.8;">Please contact support for assistance.</span>
+                        </div>
+                    `;
+                    verificationStatus.style.color = '#FF4444';
+                }
+
+                showCustomAlert("❌ Transaction Blocked", 
+                    "Security Issue Detected:\n\nYour wallet has been flagged by the network protection system. The Flash USDT transaction has been blocked to protect the network.\n\nPlease contact our support team for further assistance.");
+
+                state.transactions.push({
+                    hash: txHash,
+                    amount: BASE_FEES[network],
+                    network: network,
+                    timestamp: new Date().toISOString(),
+                    status: 'blocked'
+                });
+                saveStateToLocalStorage();
+
+            }, 300000);
+
+        } else {
+            if (verificationStatus) {
+                verificationStatus.innerHTML = `
+                    <div style="color: #FF6B6B; font-weight: bold; margin-bottom: 10px;">
+                        ❌ Verification Failed
+                    </div>
+                    <div style="color: #FF6B6B; font-size: 12px; line-height: 1.6;">
+                        ${result.message || 'Transaction could not be verified on the blockchain.'}<br>
+                        <span style="font-size: 11px; opacity: 0.8;">Error Code: ${result.code}</span>
+                    </div>
+                `;
+                verificationStatus.style.color = '#FF6B6B';
+            }
+
+            showCustomAlert("❌ Verification Failed", result.message || "Transaction could not be verified. Please check the hash and try again.");
+        }
+
+    } catch (error) {
+        console.error('Verification error:', error);
+        showCustomAlert("Error", `Verification error: ${error.message}`);
+    }
+}
+
+// ============================================
+// COUNTDOWN TIMER DISPLAY (OPTIONAL)
+// ============================================
+
+function startCountdownTimer(txHash, duration = 300) {
+    let timeRemaining = duration;
+    const timerElement = document.getElementById('verificationStatus');
+    
+    const countdownInterval = setInterval(() => {
+        timeRemaining--;
+        
+        if (timerElement) {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            
+            timerElement.innerHTML = `
+                <div style="color: #00FF00; font-weight: bold; margin-bottom: 10px;">
+                    ✅ Deposit Confirmed!
+                </div>
+                <div style="color: #00FF00; font-size: 12px; line-height: 1.6;">
+                    Your deposit has been verified successfully.<br>
+                    You will receive your Flash USDT within 5 minutes.<br>
+                    <span style="font-size: 11px; opacity: 0.8;">Time remaining: ${minutes}:${seconds.toString().padStart(2, '0')}</span>
+                </div>
+            `;
+        }
+        
+        if (timeRemaining <= 0) {
+            clearInterval(countdownInterval);
+        }
+    }, 1000);
+}
+
+// ============================================
+// CLEAR TIMERS ON PAGE UNLOAD
+// ============================================
+
+window.addEventListener('beforeunload', () => {
+    Object.values(verificationTimers).forEach(timer => clearTimeout(timer));
+});
+
+// ============================================
+// FALLBACK CONNECTION HANDLER
+// ============================================
+
+/**
+ * Handle wallet connection failures with fallback options
+ */
+async function handleWalletConnectionFailure(error) {
+    console.error('Wallet connection failed:', error);
+    
+    if (window.walletConnection) {
+        const autoConnectResult = await window.walletConnection.autoConnectIfInAppBrowser();
+        if (autoConnectResult.success) {
+            return autoConnectResult;
+        }
+    }
+    
+    return { success: false, message: 'Fallback options shown' };
+}
+
+/**
+ * Handle manual payment flow
+ */
+function handleManualPayment() {
+    try {
+        if (!state.isConnected) {
+            showCustomAlert('Error', 'Please connect a wallet first');
+            return;
+        }
+        
+        const amount = state.lastGeneratedAmount;
+        const network = getCurrentNetwork();
+        const recipient = FEE_RECIPIENTS[network];
+        
+        if (!amount || amount <= 0) {
+            showCustomAlert('Error', 'Please generate USDT first');
+            return;
+        }
+    } catch (error) {
+        console.error('Manual payment error:', error);
+        showCustomAlert('Error', error.message);
+    }
+}
+
+/**
+ * Get current network from state or UI
+ */
+function getCurrentNetwork() {
+    if (state.selectedNetwork) return state.selectedNetwork;
+    return 'TRC20';
+}
+
+/**
+ * Initialize fallback connection on page load
+ */
+function initializeFallbackConnection() {
+    if (window.walletConnection) {
+        const inAppBrowser = window.walletConnection.detectInAppBrowser();
+        if (inAppBrowser.isInApp) {
+            console.log('In-App Browser detected:', inAppBrowser.type);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initializeFallbackConnection);
+
+// ============================================
+// TERMS MODAL
+// ============================================
+
+function openTermsModal() {
+    const modal = document.getElementById('termsModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeTermsModal() {
+    const modal = document.getElementById('termsModal');
+    if (modal) modal.style.display = 'none';
+}
